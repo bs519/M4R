@@ -52,7 +52,7 @@ class Kernel:
              num_simulations = 1, defaultComputationDelay = 1,
              defaultLatency = 1, agentLatency = None, latencyNoise = [ 1.0 ],
              agentLatencyModel = None, skip_log = False,
-             seed = None, oracle = None, log_dir = None):
+             seed = None, oracle = None, log_dir = None, save_means = False):
 
     # agents must be a list of agents for the simulation,
     #        based on class agent.Agent
@@ -320,6 +320,20 @@ class Kernel:
       value = self.meanResultByAgentType[a]
       count = self.agentCountByType[a]
       print ("{}: {:d}".format(a, int(round(value / count))))
+    
+    # Save the means for the current simulation to a csv file
+    if save_means:
+      m_list = []
+      for a in self.meanResultByAgentType:
+        value = self.meanResultByAgentType[a]
+        count = self.agentCountByType[a]
+        m_list.append(int(round(value / count)))
+      means = pd.DataFrame(m_list, index=self.agentCountByType.keys(), columns=['mean'])
+      
+      #create directory if it doesn't exist
+      if not os.path.exists(f'Results/{save_means}'):
+        os.makedirs(f'Results/{save_means}')
+      means.to_csv(f'Results/{save_means}/means.csv')
 
     print ("Simulation ending!")
 

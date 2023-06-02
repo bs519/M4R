@@ -29,6 +29,7 @@ from model.LatencyModel import LatencyModel
 from agent.ZeroIntelligenceAgent import ZeroIntelligenceAgent
 from agent.HeuristicBeliefLearningAgent import HeuristicBeliefLearningAgent
 
+
 ########################################################################################################################
 ############################################### GENERAL CONFIG #########################################################
 
@@ -86,7 +87,7 @@ parser.add_argument('-p',
 parser.add_argument("-n",
                     "--noise-agents",
                     type=float,
-                    default= 5000, #50,
+                    default= 50, #5000,
                     help= "Number of Noise agent")
 parser.add_argument("-m",
                     "--momentum-agents",
@@ -96,18 +97,28 @@ parser.add_argument("-m",
 parser.add_argument("-a",
                     "--value-agents",
                     type=float,
-                    default= 100, #10,
+                    default= 10, #100,
                     help= "Number of Noise agent")
 parser.add_argument("-o",
                     "--zi-agents",
                     type=float,
-                    default= 1,
+                    default= 0,
                     help= "Number of ZI agent")
 parser.add_argument("-u",
                     "--hbl-agents",
                     type=float,
-                    default= 1,
+                    default= 0,
                     help= "Number of HBL agent")
+parser.add_argument("-i",
+                    "--inference-agents",
+                    type=float,
+                    default= 0,
+                    help= "Number of inference agent")
+parser.add_argument("-x",
+                    "--print-means",
+                    type=bool,
+                    default= False,
+                    help= "directory to store mean of agents in Results folder")
 
 # Hyperparameters for inference config
 parser.add_argument("-z",
@@ -188,6 +199,9 @@ if args.config_help:
     parser.print_help()
     sys.exit()
 
+if round(args.inference_agents)>0:
+    from agent.InferenceAgent import InferenceAgent
+
 log_dir = args.log_dir  # Requested log directory.
 seed = args.seed  # Random seed specification on the command line.
 if not seed: seed = int(pd.Timestamp.now().timestamp() * 1000000) % (2 ** 32 - 1)
@@ -202,8 +216,8 @@ book_freq = 0
 
 simulation_start_time = dt.datetime.now()
 print("Simulation Start Time: {}".format(simulation_start_time))
-print("Configuration seed: {}\n".format(seed))
-print("zi agents: {}".format(args.zi_agents))
+#print("Configuration seed: {}\n".format(seed))
+print("inference agents: {}".format(round(args.inference_agents)))
 ########################################################################################################################
 ############################################### AGENTS CONFIG ##########################################################
 
@@ -437,6 +451,31 @@ agents.extend([HeuristicBeliefLearningAgent(id=j,
 agent_types.extend("HeuristicBeliefLearningAgent")
 agent_count += num_hbl_agents
 
+# 9) Inference Agents
+num_inference_agents = round(args.inference_agents)
+
+agents.extend([InferenceAgent(id=j,
+                             name="INFERENCE_AGENT_{}".format(j),
+                             type="InferenceAgent",
+                             symbol=symbol,
+                             starting_cash=starting_cash,
+                             min_size=1,
+                             max_size=10,
+                             wake_up_freq='20s',
+                             L=5000,
+                             log_orders=log_orders,
+                             random_state=np.random.RandomState(seed=np.random.randint(low=0, high=2 ** 32,
+                                                                                       dtype='uint64')),
+                             init_wakeup_time="00:30:00",
+                             sim_time="00:00:00",
+                             mkt_open=mkt_open,
+                             mkt_close=mkt_close,
+                             k=5,
+                             m=2)
+               for j in range(agent_count, agent_count + num_inference_agents)])
+agent_count += num_inference_agents
+agent_types.extend("InferenceAgent")
+
 ########################################################################################################################
 ########################################### KERNEL AND OTHER CONFIG ####################################################
 
@@ -476,7 +515,7 @@ kernel.runner(agents=agents,
               agentLatencyModel=latency_model,
               defaultComputationDelay=defaultComputationDelay,
               oracle=oracle,
-              log_dir=args.log_dir)
+              log_dir=args.log_dir, save_means = args.print_means)
 
 
 simulation_end_time = dt.datetime.now()

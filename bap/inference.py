@@ -20,6 +20,7 @@ p = str(Path(__file__).resolve().parents[1])  # directory one level up from this
 sys.path.append(p)
 
 from realism.realism_utils import make_orderbook_for_analysis, MID_PRICE_CUTOFF
+from util.formatting.convert_order_stream import convert_stream_to_format
 #from market_simulations import rmsc03_4
 
 os.makedirs("Results", exist_ok = True)
@@ -135,18 +136,30 @@ class Model(ProbabilisticModel, Continuous):
         for i in range(k):
             subprocess.run([f"python3 -u abides.py -c bap -t ABM -d 20200603 '10:00:00' '11:30:00' "
             f"-l bap_timestep -n {num_noise} -m {num_momentum_agents} -a {num_value} "
-            f"-z {self.starting_cash} -r {self.r_bar} -g {self.sigma_n} -k {self.kappa} -b {self.lambda_a}"], shell=True) #check it correctly runs the 3 lines
+            f"-z {self.starting_cash} -r {self.r_bar} -g {self.sigma_n} -k {self.kappa} -b {self.lambda_a}"], shell=True)
             
+            stream_df = pd.read_pickle("log/bap_timestep/EXCHANGE_AGENT.bz2")
+            stream_processed = convert_stream_to_format(stream_df.reset_index(), fmt='plot-scripts')
+            stream_processed = stream_processed.set_index('TIMESTAMP')
+            cleaned_orderbook = stream_processed
 
-            processed_orderbook =  make_orderbook_for_analysis("log/bap_timestep/EXCHANGE_AGENT.bz2", "log/bap_timestep/ORDERBOOK_ABM_FULL.bz2", num_levels=1,
+            #change true to 1 and false to 0 in buy_sell_flag
+            cleaned_orderbook['BUY_SELL_FLAG'] = cleaned_orderbook['BUY_SELL_FLAG'].astype(int)
+
+            #cleaned_orderbook = cleaned_orderbook.iloc[:,1:]
+            result.append(cleaned_orderbook.to_numpy()) #.to_numpy().flatten().tolist()
+
+            """processed_orderbook =  make_orderbook_for_analysis("log/bap_timestep/EXCHANGE_AGENT.bz2", "log/bap_timestep/ORDERBOOK_ABM_FULL.bz2", num_levels=1,
                                                                hide_liquidity_collapse=False)# estimates parameters
+            print(processed_orderbook.head(5))
+            print(type(processed_orderbook))
             cleaned_orderbook = processed_orderbook[(processed_orderbook['MID_PRICE'] > - MID_PRICE_CUTOFF) &
                                                     (processed_orderbook['MID_PRICE'] < MID_PRICE_CUTOFF)]
             
             #remove nan value in first row
             cleaned_orderbook = cleaned_orderbook.drop(cleaned_orderbook.index[0])
             #change true to 1 and false to 0 in buy_sell_flag
-            cleaned_orderbook['BUY_SELL_FLaAG'] = cleaned_orderbook['BUY_SELL_FLAG'].astype(int)
+            cleaned_orderbook['BUY_SELL_FLAG'] = cleaned_orderbook['BUY_SELL_FLAG'].astype(int)
 
             # change "LIMIT_ORDER" to 0, "ORDER_EXECUTED" to 1, "ORDER_CANCELLED" to 2
             cleaned_orderbook['TYPE'] = cleaned_orderbook['TYPE'].replace('LIMIT_ORDER', 0)
@@ -154,7 +167,7 @@ class Model(ProbabilisticModel, Continuous):
             cleaned_orderbook['TYPE'] = cleaned_orderbook['TYPE'].replace('ORDER_CANCELLED', 2)
             
             cleaned_orderbook = cleaned_orderbook.iloc[:,1:]
-            result.append(cleaned_orderbook.to_numpy().flatten().tolist())
+            result.append(cleaned_orderbook.to_numpy().flatten().tolist())"""
 
         return result
         
@@ -206,74 +219,6 @@ class Model(ProbabilisticModel, Continuous):
 
 ### Summary Statistics
 
-"""from realism.realism_utils import make_orderbook_for_analysis, MID_PRICE_CUTOFF
-
-PLOT_PARAMS_DICT = None
-# binwidth = 120
-LIQUIDITY_DROPOUT_BUFFER = 360  # Time in seconds used to "buffer" as indicating start and end of trading
-
-
-def create_orderbooks(exchange_path, ob_path):
-    """ "Creates orderbook DataFrames from ABIDES exchange output file and orderbook output file." """
-
-    print("Constructing orderbook...")
-    processed_orderbook = make_orderbook_for_analysis(exchange_path, ob_path, num_levels=1,
-                                                      hide_liquidity_collapse=False)
-    cleaned_orderbook = processed_orderbook[(processed_orderbook['MID_PRICE'] > - MID_PRICE_CUTOFF) &
-                                            (processed_orderbook['MID_PRICE'] < MID_PRICE_CUTOFF)]
-    transacted_orders = cleaned_orderbook.loc[cleaned_orderbook.TYPE == "ORDER_EXECUTED"]
-    transacted_orders['SIZE'] = transacted_orders['SIZE'] / 2
-
-    return processed_orderbook, transacted_orders, cleaned_orderbook
-
-
-def bin_and_sum(s, binwidth):
-    """ "Sums the values of a pandas Series indexed by Datetime according to specific binwidth."
-
-"        :param s: series of values to process"
-"        :type s: pd.Series with pd.DatetimeIndex index"
-"        :param binwidth: width of time bins in seconds"
-"        :type binwidth: float"
-"""
-    bins = pd.interval_range(start=s.index[0].floor('min'), end=s.index[-1].ceil('min'),
-                             freq=pd.DateOffset(seconds=binwidth))
-    binned = pd.cut(s.index, bins=bins)
-    counted = s.groupby(binned).sum()
-    return counted
-
-
-
-def make_liquidity_dropout_events(processed_orderbook):
-    """ """Return index series corresponding to liquidity dropout point events for bids and asks.""" """
-    no_bid_side = processed_orderbook.loc[processed_orderbook['MID_PRICE'] < - MID_PRICE_CUTOFF]
-    no_ask_side = processed_orderbook.loc[processed_orderbook['MID_PRICE'] > MID_PRICE_CUTOFF]
-    no_bid_idx = no_bid_side.index[~no_bid_side.index.duplicated(keep='last')]
-    no_ask_idx = no_ask_side.index[~no_ask_side.index.duplicated(keep='last')]
-
-    return no_bid_idx, no_ask_idx
-
-
-
-def load_fundamental(ob_path):
-    """ "Retrieves fundamental path from orderbook path." """
-
-    # get ticker name from ob path ORDERBOOK_TICKER_FULL.bz2
-    basename = os.path.basename(ob_path)
-    ticker = basename.split('_')[1]
-
-    # fundamental path from ticker fundamental_TICKER.bz2
-    fundamental_path = f'{os.path.dirname(ob_path)}/fundamental_{ticker}.bz2'
-
-    # load fundamental as pandas series
-    if os.path.exists(fundamental_path):
-        fundamental_df = pd.read_pickle(fundamental_path)
-        fundamental_ts = fundamental_df['FundamentalValue'].sort_index() / 100  # convert to USD from cents
-        fundamental_ts = fundamental_ts.loc[~fundamental_ts.index.duplicated(keep='last')]
-
-        return fundamental_ts
-    else:
-        return None"""
-
 
 class SummaryStatistics(Statistics):
     """
@@ -309,7 +254,7 @@ class SummaryStatistics(Statistics):
         # Compute statistics
         for ind_element in range(0, num_element):
             print(data[ind_element].shape[1])
-            data_ind_element = data[ind_element].reshape(data[ind_element].shape[1]//13, 13)
+            data_ind_element = data[ind_element].reshape(data[ind_element].shape[1]//12, 12)
             print(data_ind_element)
             data_ind_element = pd.DataFrame(data_ind_element)
             # get the first and last time of the orderbook
@@ -343,6 +288,7 @@ class SummaryStatistics(Statistics):
     #    first_time_fundamental = None
     #    last_time_fundamental = None
     
+from bap.inference_functions import Model, SummaryStatistics
     
 from abcpy.discretemodels import DiscreteUniform
 from abcpy.continuousmodels import Uniform
@@ -351,9 +297,9 @@ from abcpy.continuousmodels import Uniform
 momentum = DiscreteUniform([[0], [50]], name = "momentum") #50
 value = DiscreteUniform([[0], [20]], name = "value") #200"""
 
-noise = Uniform([[0], [10000]], name = "noise") #100
+noise = Uniform([[0], [100]], name = "noise") #10000
 momentum = Uniform([[0], [50]], name = "momentum") #50
-value = Uniform([[0], [200]], name = "value") #20
+value = Uniform([[0], [20]], name = "value") #200
 model = Model([noise, momentum, value], name = "model")
 
 
@@ -377,29 +323,33 @@ backend = Backend()
 
 from abcpy.inferences import SMCABC
 
-## Generate observations
-true_parameter_values = [5000, 25, 100]
-k=2
-observation = model.forward_simulate(true_parameter_values, k, rng = np.random.RandomState(1))
-#print sum of values in observation
-print(observation)
-print(observation[0])
-stat_obs = statistics_calculator.statistics(observation)
 
 
 try:
-    journal = Journal.fromFile("Results/test_sumstats1_smcabc_big.jrnl")
+    journal = Journal.fromFile("Results/test_sumstats2_smcabc_big.jrnl")
 except FileNotFoundError:
+    ## Generate observations
+    #true_parameter_values = [5000, 25, 100]
+    true_parameter_values = [50, 25, 10]
+    k=1
+    observation = model.forward_simulate(true_parameter_values, k, rng = np.random.RandomState(1))
+    #print sum of values in observation
+    print("observation:", observation)
+    print("1st term:", observation[0][0])
+    stat_obs = statistics_calculator.statistics(observation)
+    print("stat_obs:", stat_obs)
+    print("1st term stat_obs:", stat_obs[0]) 
+
     print("Run with inference SMCABC")
-    sampler = SMCABC([model], [distance_calculator], backend, kernel, seed = 1)
+    sampler = SMCABC([model], [distance_calculator], backend, kernel, seed = 3)
     # Define sampling parameters
     #full output = 0 for no intermediary values
     #steps, n_samples, n_samples_per_param, full_output = 20, 10000, 1, 0
     #steps, n_samples, n_samples_per_param, full_output = 2, 100, 1, 0 # quicker
-    steps, n_samples, n_samples_per_param, full_output = 2, k, k, 0
+    steps, n_samples, n_samples_per_param, full_output = 2, 5, k, 0 # 2, 5, k, 0
     # Sample
     journal = sampler.sample([observation], steps, n_samples,
-                             n_samples_per_param, full_output = full_output)
+                                n_samples_per_param, full_output = full_output)
     # save the final journal file
     journal.save("Results/test_sumstats1_smcabc_big.jrnl")
 
