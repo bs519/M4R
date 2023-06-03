@@ -3,7 +3,6 @@ import importlib
 import sys
 
 if __name__ == '__main__':
-
   # Print system banner.
   system_name = "ABIDES: Agent-Based Interactive Discrete Event Simulation"
 

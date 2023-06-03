@@ -11,7 +11,7 @@ class ZeroIntelligenceAgent(TradingAgent):
     def __init__(self, id, name, type, symbol='IBM', starting_cash=100000, sigma_n=1000,
                  r_bar=100000, kappa=0.05, sigma_s=100000, q_max=10,
                  sigma_pv=5000000, R_min=0, R_max=250, eta=1.0,
-                 lambda_a=0.005, log_orders=False, random_state=None):
+                 lambda_a=0.005, log_orders=False, wake_up_time = None ,random_state=None):
 
         # Base class init.
         super().__init__(id, name, type, starting_cash=starting_cash, log_orders=log_orders, random_state=random_state)
@@ -28,6 +28,8 @@ class ZeroIntelligenceAgent(TradingAgent):
         self.R_max = R_max  # max requested surplus
         self.eta = eta  # strategic threshold
         self.lambda_a = lambda_a  # mean arrival rate of ZI agents
+
+        self.wake_up_time = wake_up_time
 
         # The agent uses this to track whether it has begun its strategy or is still
         # handling pre-market tasks.
@@ -106,7 +108,7 @@ class ZeroIntelligenceAgent(TradingAgent):
             # TradingAgent handles discovery of exchange times.
             return
         else:
-            if not self.trading:
+            if not self.trading and (self.wake_up_time is None or self.wake_up_time <= currentTime):
                 self.trading = True
 
                 # Time to start trading!

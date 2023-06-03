@@ -11,7 +11,7 @@ from util.formatting.convert_order_stream import convert_stream_to_format
 from util.formatting.convert_order_book import process_orderbook, is_wide_book
 import itertools
 
-from multiprocessing import get_context
+
 
 mkt_open=pd.to_datetime("20200603")+ pd.to_timedelta("09:30:00")
 mkt_close= pd.to_datetime("20200603")+ pd.to_timedelta("10:30:00")
@@ -25,6 +25,7 @@ num_value = 10
 
 # time this
 import time
+
 """start_time = time.time()
 
 for i in range(3): #self.sim_num):
@@ -56,16 +57,16 @@ print("time taken:", end_time - start_time)"""
 
 #do the same with multiprocessing
 
+from multiprocessing import get_context
 import multiprocessing as mp
 
-if __name__ == '__main__':
 
-
-    print(mp.cpu_count())
-
-    def run_simulation(i):
+def run_simulation(i):
         cleaned_orderbook = np.array([])
-        while cleaned_orderbook.shape[0] == 0:
+        n = 0
+        while True:
+            n += 1
+            print("n:", n)
             try:
                 # +self.sim_time} "
                 subprocess.run([f"python3 -u abides.py -c bap -t ABM -d {historical_date} {startsimTime} {endsimTime} -l test_{i} -n {num_noise} -m {num_momentum} -a {num_value}"], shell=True)
@@ -82,20 +83,32 @@ if __name__ == '__main__':
                                                             'bid_size_1','SPREAD','ORDER_VOLUME_IMBALANCE','VWAP'], axis=1)
                 print("cleaned orderbook:", cleaned_orderbook.head(5))
                 print("cleaned orderbook shape:", cleaned_orderbook.shape)
+                if cleaned_orderbook.shape[0] != 0:
+                    break
+                else:
+                    continue
         
         return cleaned_orderbook
 
+
+#@jit(nopython=True)
+if __name__ == '__main__':
+    from multiprocessing import set_start_method
+    set_start_method("spawn")
+
+    print(mp.cpu_count())
+
     start_time = time.time()
 
-    pool_obj = mp.Pool(mp.cpu_count())
-    results = pool_obj.map(run_simulation, range(3))
+    with get_context("spawn").Pool() as pool_obj:
+        results = pool_obj.map(run_simulation, range(1))
 
     end_time = time.time()
 
     print("time taken:", end_time - start_time)
 
     print("results:", results[0].shape)
-    print("results full:", results)
+    print("results full:", pd.concat(results))
 
 
 

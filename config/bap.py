@@ -114,11 +114,31 @@ parser.add_argument("-i",
                     type=float,
                     default= 0,
                     help= "Number of inference agent")
+parser.add_argument("-j",
+                    "--exp1-agents",
+                    type=float,
+                    default= 0,
+                    help= "Number of inference agent used in experiment 1.2.1")
+parser.add_argument("-k",
+                    "--exp2-agents",
+                    type=float,
+                    default= 0,
+                    help= "Number of inference agent used in experiment 1.2.2")
 parser.add_argument("-x",
                     "--print-means",
                     type=bool,
                     default= False,
                     help= "directory to store mean of agents in Results folder")
+parser.add_argument("-y",
+                    "--simulation-number",
+                    type=int,
+                    default= 1,
+                    help= "Number of simulation to run")
+parser.add_argument("-w",
+                    "--wakeup-time",
+                    type=str,
+                    default= "00:30:00",
+                    help= "Time to wake up inference and zero intelligence agents")
 
 # Hyperparameters for inference config
 parser.add_argument("-z",
@@ -201,6 +221,11 @@ if args.config_help:
 
 if round(args.inference_agents)>0:
     from agent.InferenceAgent import InferenceAgent
+if round(args.exp1_agents)>0:
+    from agent.ExperimentAgent1 import ExperimentAgent1
+if round(args.exp2_agents)>0:
+    from agent.ExperimentAgent2 import ExperimentAgent2
+
 
 log_dir = args.log_dir  # Requested log directory.
 seed = args.seed  # Random seed specification on the command line.
@@ -218,6 +243,8 @@ simulation_start_time = dt.datetime.now()
 print("Simulation Start Time: {}".format(simulation_start_time))
 #print("Configuration seed: {}\n".format(seed))
 print("inference agents: {}".format(round(args.inference_agents)))
+print("experiment 1.2.1 agents: {}".format(round(args.exp1_agents)))
+print("experiment 1.2.2 agents: {}".format(round(args.exp2_agents)))
 ########################################################################################################################
 ############################################### AGENTS CONFIG ##########################################################
 
@@ -401,6 +428,9 @@ agents.extend(execution_agents)
 agent_types.extend("ExecutionAgent")
 agent_count += 1
 
+
+wake_up_time = args.wakeup_time
+
 # 7) Zero Intelligence Agents
 
 num_zi_agents = round(args.zi_agents)
@@ -420,6 +450,7 @@ agents.extend([ZeroIntelligenceAgent(id=j,
                                      eta=1,
                                      lambda_a=1e-12,
                                      log_orders=False,
+                                     wake_up_time=wake_up_time,
                                      random_state=np.random.RandomState(seed=np.random.randint(low=0, high=2 ** 32,
                                                                                                dtype='uint64')))
                for j in range(agent_count, agent_count + num_zi_agents)])
@@ -453,6 +484,7 @@ agent_count += num_hbl_agents
 
 # 9) Inference Agents
 num_inference_agents = round(args.inference_agents)
+sim_num = args.simulation_number
 
 agents.extend([InferenceAgent(id=j,
                              name="INFERENCE_AGENT_{}".format(j),
@@ -466,15 +498,67 @@ agents.extend([InferenceAgent(id=j,
                              log_orders=log_orders,
                              random_state=np.random.RandomState(seed=np.random.randint(low=0, high=2 ** 32,
                                                                                        dtype='uint64')),
-                             init_wakeup_time="00:30:00",
+                             init_wakeup_time=wake_up_time,
                              sim_time="00:00:00",
                              mkt_open=mkt_open,
                              mkt_close=mkt_close,
-                             k=5,
+                             k=sim_num,
                              m=2)
                for j in range(agent_count, agent_count + num_inference_agents)])
 agent_count += num_inference_agents
 agent_types.extend("InferenceAgent")
+
+# 10) Inference Agent experiment 1.2.1
+num_ex1_agents = round(args.exp1_agents)
+sim_num = args.simulation_number
+
+agents.extend([ExperimentAgent1(id=j,
+                             name="INFERENCE_AGENT_EXP1{}".format(j),
+                             type="InferenceAgentExp1",
+                             symbol=symbol,
+                             starting_cash=starting_cash,
+                             min_size=1,
+                             max_size=10,
+                             wake_up_freq='20s',
+                             L=5000,
+                             log_orders=log_orders,
+                             random_state=np.random.RandomState(seed=np.random.randint(low=0, high=2 ** 32,
+                                                                                       dtype='uint64')),
+                             init_wakeup_time=wake_up_time,
+                             sim_time="00:00:00",
+                             mkt_open=mkt_open,
+                             mkt_close=mkt_close,
+                             k=sim_num,
+                             m=2)
+               for j in range(agent_count, agent_count + num_ex1_agents)])
+agent_count += num_ex1_agents
+agent_types.extend("InferenceAgentExp1")
+
+# 11) Inference Agent experiment 1.2.2
+num_ex2_agents = round(args.exp2_agents)
+sim_num = args.simulation_number
+
+agents.extend([ExperimentAgent2(id=j,
+                             name="INFERENCE_AGENT_EXP2{}".format(j),
+                             type="InferenceAgentExp2",
+                             symbol=symbol,
+                             starting_cash=starting_cash,
+                             min_size=1,
+                             max_size=10,
+                             wake_up_freq='20s',
+                             L=5000,
+                             log_orders=log_orders,
+                             random_state=np.random.RandomState(seed=np.random.randint(low=0, high=2 ** 32,
+                                                                                       dtype='uint64')),
+                             init_wakeup_time=wake_up_time,
+                             sim_time="00:00:00",
+                             mkt_open=mkt_open,
+                             mkt_close=mkt_close,
+                             k=sim_num,
+                             m=2)
+               for j in range(agent_count, agent_count + num_ex2_agents)])
+agent_count += num_ex2_agents
+agent_types.extend("InferenceAgentExp2")
 
 ########################################################################################################################
 ########################################### KERNEL AND OTHER CONFIG ####################################################

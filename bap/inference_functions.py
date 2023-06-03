@@ -6,14 +6,9 @@ from datetime import datetime, timedelta
 import subprocess
 from math import trunc
 
-# from abcpy.backends import BackendMPI as Backend
-# the above is in case you want to use MPI, with `mpirun -n <number tasks> python code.py`
-from abcpy.backends import BackendDummy as Backend
-from abcpy.output import Journal
-from abcpy.perturbationkernel import DefaultKernel
-from abcpy.probabilisticmodels import ProbabilisticModel, Continuous, InputConnector, Discrete
-from abcpy.statistics import Identity, Statistics
-from abcpy.statisticslearning import SemiautomaticNN
+
+from abcpy.probabilisticmodels import ProbabilisticModel, Continuous, InputConnector
+from abcpy.statistics import Statistics
 
 ### Summary Statistics
 import sys
@@ -75,10 +70,6 @@ class Model(ProbabilisticModel, Continuous):
         num_noise = input_values[0]
         num_momentum_agents = input_values[1]
         num_value = input_values[2]
-    
-        # if theta1 <= 0 or theta2 <= 0:
-        # why? this does not make much sense, the parameters of the deterministic part could be smaller than 0
-        #    return False
 
         if num_noise < 0 or num_momentum_agents < 0 or num_value < 0:# or isinstance(num_noise, int) == False or isinstance(num_momentum_agents, int) == False or isinstance(num_value, int) == False:
             return False
@@ -88,9 +79,6 @@ class Model(ProbabilisticModel, Continuous):
     def _check_output(self, values):
         if not isinstance(values, np.array):
             raise ValueError('This returns an array')
-        
-        """if values.shape[0] != 5:
-            raise RuntimeError('The size of the output has to be 5.')"""
         
         return True
 
@@ -126,18 +114,22 @@ class Model(ProbabilisticModel, Continuous):
         ----------
         num_noise: number of noise agents
         num_momentum: number of momentum agents
-        num_value:number of valuem agents
+        num_value:number of value agents
 
         Return:
         List of length k each containing the order book of the simulation
         """
 
         result = []
-        n = self.n
-        end_sim = n + timedelta(minutes=1)
+        if self.n:
+            n = self.n
+            end_sim = n + timedelta(minutes=1)
+        else:
+            end_sim = "11:30:00"
+            n = None
         for i in range(k):
             #### make python file execute powershell command with parameters as config
-            """subprocess.run([f"python3 -u abides.py -c bap -t ABM -d 20200603 '10:00:00' {end_sim.strftime("%H:%M:%S")} -l inference -n {num_noise} -m {num_momentum_agents} -a {num_value} -z {self.starting_cash} -r {self.r_bar} -g {self.sigma_n} -k {self.kappa} -b {self.lambda_a}"], shell=True)"""
+            subprocess.run([f"python3 -u abides.py -c bap -t ABM -d 20200603 '9:30:00' {end_sim.strftime('%H:%M:%S')} -l inference -n {num_noise} -m {num_momentum_agents} -a {num_value} -z {self.starting_cash} -r {self.r_bar} -g {self.sigma_n} -k {self.kappa} -b {self.lambda_a}"], shell=True)
             
             stream_df = pd.read_pickle("log/inference/EXCHANGE_AGENT.bz2")
             stream_processed = convert_stream_to_format(stream_df.reset_index(), fmt='plot-scripts')
