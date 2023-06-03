@@ -119,7 +119,7 @@ parser.add_argument("-j",
                     type=float,
                     default= 0,
                     help= "Number of inference agent used in experiment 1.2.1")
-parser.add_argument("-k",
+parser.add_argument("-q",
                     "--exp2-agents",
                     type=float,
                     default= 0,

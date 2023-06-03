@@ -14,7 +14,7 @@ sys.path.append(p)
 def experiment4(sim_number, start_sim_time):
     for i in tqdm([0.1, 0.5, 1, 2, 5, 10, 25]):
         print(f"Simulation with m = {i}")
-        subprocess.run([f"python3 -u abides.py -c bap -t ABM -d 20200603 '9:30:00' '10:00:00' -l experiment_4 -o 1 -k 1 -x experiment1.2/experiment1.2.2 -y {sim_number} -w {start_sim_time}"], shell=True)
+        subprocess.run([f"python3 -u abides.py -c bap -t ABM -d 20200603 '9:30:00' '10:00:00' -l experiment_4 -o 1 -q 1 -x experiment1.2/experiment1.2.2 -y {sim_number} -w {start_sim_time}"], shell=True)
 
 
 if __name__=='__main__':
