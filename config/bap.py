@@ -139,6 +139,11 @@ parser.add_argument("-w",
                     type=str,
                     default= "00:30:00",
                     help= "Time to wake up inference and zero intelligence agents")
+parser.add_argument("-f",
+                    "--mpar",
+                    type=float,
+                    default= 2,
+                    help= "m parameter of Bollinger Band")
 
 # Hyperparameters for inference config
 parser.add_argument("-z",
@@ -243,8 +248,6 @@ simulation_start_time = dt.datetime.now()
 print("Simulation Start Time: {}".format(simulation_start_time))
 #print("Configuration seed: {}\n".format(seed))
 print("inference agents: {}".format(round(args.inference_agents)))
-print("experiment 1.2.1 agents: {}".format(round(args.exp1_agents)))
-print("experiment 1.2.2 agents: {}".format(round(args.exp2_agents)))
 ########################################################################################################################
 ############################################### AGENTS CONFIG ##########################################################
 
@@ -450,7 +453,7 @@ agents.extend([ZeroIntelligenceAgent(id=j,
                                      eta=1,
                                      lambda_a=1e-12,
                                      log_orders=False,
-                                     wake_up_time=wake_up_time,
+                                     wake_up_time=pd.to_datetime(mkt_open) + pd.to_timedelta(wake_up_time),
                                      random_state=np.random.RandomState(seed=np.random.randint(low=0, high=2 ** 32,
                                                                                                dtype='uint64')))
                for j in range(agent_count, agent_count + num_zi_agents)])
@@ -482,6 +485,7 @@ agents.extend([HeuristicBeliefLearningAgent(id=j,
 agent_types.extend("HeuristicBeliefLearningAgent")
 agent_count += num_hbl_agents
 
+m = args.mpar
 # 9) Inference Agents
 num_inference_agents = round(args.inference_agents)
 sim_num = args.simulation_number
@@ -493,7 +497,7 @@ agents.extend([InferenceAgent(id=j,
                              starting_cash=starting_cash,
                              min_size=1,
                              max_size=10,
-                             wake_up_freq='20s',
+                             wake_up_freq='60s',
                              L=5000,
                              log_orders=log_orders,
                              random_state=np.random.RandomState(seed=np.random.randint(low=0, high=2 ** 32,
@@ -503,7 +507,7 @@ agents.extend([InferenceAgent(id=j,
                              mkt_open=mkt_open,
                              mkt_close=mkt_close,
                              k=sim_num,
-                             m=2)
+                             m=m)
                for j in range(agent_count, agent_count + num_inference_agents)])
 agent_count += num_inference_agents
 agent_types.extend("InferenceAgent")
@@ -519,7 +523,7 @@ agents.extend([ExperimentAgent1(id=j,
                              starting_cash=starting_cash,
                              min_size=1,
                              max_size=10,
-                             wake_up_freq='20s',
+                             wake_up_freq='60s',
                              L=5000,
                              log_orders=log_orders,
                              random_state=np.random.RandomState(seed=np.random.randint(low=0, high=2 ** 32,
@@ -529,7 +533,7 @@ agents.extend([ExperimentAgent1(id=j,
                              mkt_open=mkt_open,
                              mkt_close=mkt_close,
                              k=sim_num,
-                             m=2)
+                             m=m)
                for j in range(agent_count, agent_count + num_ex1_agents)])
 agent_count += num_ex1_agents
 agent_types.extend("InferenceAgentExp1")
@@ -545,7 +549,7 @@ agents.extend([ExperimentAgent2(id=j,
                              starting_cash=starting_cash,
                              min_size=1,
                              max_size=10,
-                             wake_up_freq='20s',
+                             wake_up_freq='60s',
                              L=5000,
                              log_orders=log_orders,
                              random_state=np.random.RandomState(seed=np.random.randint(low=0, high=2 ** 32,
@@ -555,7 +559,7 @@ agents.extend([ExperimentAgent2(id=j,
                              mkt_open=mkt_open,
                              mkt_close=mkt_close,
                              k=sim_num,
-                             m=2)
+                             m=m)
                for j in range(agent_count, agent_count + num_ex2_agents)])
 agent_count += num_ex2_agents
 agent_types.extend("InferenceAgentExp2")

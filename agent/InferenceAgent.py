@@ -80,14 +80,9 @@ class InferenceAgent(TradingAgent):
     def receiveMessage(self, currentTime, msg):
         """ Momentum agent actions are determined after obtaining the best bid and ask in the LOB """
         super().receiveMessage(currentTime, msg)
-        #print(currentTime)
-
+        
         if currentTime >= self.mkt_open + self.init_wakeup_time and not self.sim_check:
-            k = self.k
             print("initiating inference")
-            """try:
-                sim_orderbook = pd.read_csv("Results/orderbooks_Agent/sim_orderbook.csv")
-            except FileNotFoundError:"""
             try:
                 journal = Journal.fromFile("Results/test_inference_agent_2.jrnl")
             except FileNotFoundError:
@@ -98,7 +93,7 @@ class InferenceAgent(TradingAgent):
                 history = [np.array([history.to_numpy()])]
                 ### GET RID OF N and test if it works
                 n = history[0][0][-1, 0]
-                model, journal = InferenceAgent.infer(history, k, n)
+                model, journal = InferenceAgent.infer(history, n)
                 # save the final journal file, depending on the experiment
                 journal.save("Results/test_inference_agent_2.jrnl")
             posterior_samples = np.array(journal.get_accepted_parameters()).squeeze()
@@ -110,7 +105,7 @@ class InferenceAgent(TradingAgent):
                 cleaned_orderbook = np.array([])
                 while True:
                     try:
-                        subprocess.run([f"python3 -u abides.py -c bap -t ABM -d {self.historical_date} {self.startsimTime} {self.endsimTime} -l inference_agent_sim -n {num_noise} -m {num_momentum} -a {num_value} -z {self.starting_cash} -r {self.r_bar} -g {self.sigma_n} -k {self.kappa} -b {self.lambda_a}"], shell=True)
+                        subprocess.run([f"python3 -u abides.py -c bap -t ABM -d {self.historical_date} --start-time {self.startsimTime} --end-time {self.endsimTime} -l inference_agent_sim -n {num_noise} -m {num_momentum} -a {num_value} -z {self.starting_cash} -r {self.r_bar} -g {self.sigma_n} -k {self.kappa} -b {self.lambda_a}"], shell=True)
                     except UnboundLocalError:
                         print("Simulation error, we will try again")
                         continue
@@ -135,7 +130,7 @@ class InferenceAgent(TradingAgent):
             for i in range(self.sim_num): #self.sim_num):
                 print(f"Simulation {i+1} of {self.sim_num}")
                 
-                """subprocess.run([f"python3 -u abides.py -c bap -t ABM -d {self.historical_date} {self.startsimTime} {self.endsimTime} -l inference_agent_sim -n {num_noise} -m {num_momentum} -a {num_value} -z {self.starting_cash} -r {self.r_bar} -g {self.sigma_n} -k {self.kappa} -b {self.lambda_a}"], shell=True)
+                """subprocess.run([f"python3 -u abides.py -c bap -t ABM -d {self.historical_date} --start-time {self.startsimTime} --end-time {self.endsimTime} -l inference_agent_sim -n {num_noise} -m {num_momentum} -a {num_value} -z {self.starting_cash} -r {self.r_bar} -g {self.sigma_n} -k {self.kappa} -b {self.lambda_a}"], shell=True)
             
                 processed_orderbook =  make_orderbook_for_analysis("log/inference_agent_sim/EXCHANGE_AGENT.bz2", "log/inference_agent_sim/ORDERBOOK_ABM_FULL.bz2", num_levels=1,
                                                                 hide_liquidity_collapse=False) # estimates parameters
@@ -251,7 +246,7 @@ class InferenceAgent(TradingAgent):
         return ob_processed
 
 
-    def infer(history, k, n=None):
+    def infer(history, n=None):
         """
         Function to perform initial inference.
         """
@@ -269,7 +264,6 @@ class InferenceAgent(TradingAgent):
             # Notice: Models not parallelized by MPI should not be given process_per_model > 1
             return backend"""
 
-        backend = setup_backend()
 
         from abcpy.output import Journal
         from abcpy.continuousmodels import Uniform
@@ -294,7 +288,7 @@ class InferenceAgent(TradingAgent):
         sampler = SMCABC([model], [distance_calculator], backend, kernel, seed = 1)
         # Define sampling parameters
         #full output = 0 for no intermediary values
-        steps, n_samples, n_samples_per_param, full_output = 2, k, 1, 0
+        steps, n_samples, n_samples_per_param, full_output = 3, 5, 1, 0
         # Sample
         journal = sampler.sample([history], steps, n_samples,
                                 n_samples_per_param, full_output = full_output)

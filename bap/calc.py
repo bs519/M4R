@@ -1,8 +1,10 @@
 import time
 start_time = time.time()
 
-it_time = 923/10
+it_time = 21
 
+# optimal step and particle number
+print("ex1.1 steps, N=20:", it_time*20*6/60/60)
 print("ex1.1 steps, N=50:", it_time*50*8/60/60)
 print("ex1.2.1 steps=5, N=20:", it_time*20*3/60+3*(1+2+3+5+10)+5)
 

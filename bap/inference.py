@@ -315,32 +315,46 @@ class Model(ProbabilisticModel, Continuous):
         n = self.n
         #end_sim = n + timedelta(minutes=1)
         for i in range(k):
-            subprocess.run([f"python3 -u abides.py -c bap -t ABM -d 20200603 '9:30:00' '10:00:00' -l test -n {num_noise} -m {num_momentum_agents} -a {num_value} -z {self.starting_cash} -r {self.r_bar} -g {self.sigma_n} -k {self.kappa} -b {self.lambda_a}"], shell=True)
-            
-            stream_df = pd.read_pickle("log/test/EXCHANGE_AGENT.bz2")
-            stream_processed = convert_stream_to_format(stream_df.reset_index(), fmt='plot-scripts')
-            stream_processed = stream_processed.set_index('TIMESTAMP')
-            cleaned_orderbook = stream_processed
+            cleaned_orderbook = np.array([])
+            n = 0
+            while True:
+                try:
+                    subprocess.run([f"python3 -u abides.py -c bap -t ABM -d 20200603 --end-time '10:30:00' -l test -n {num_noise} -m {num_momentum_agents} -a {num_value} -z {self.starting_cash} -r {self.r_bar} -g {self.sigma_n} -k {self.kappa} -b {self.lambda_a}"], shell=True)
+                except UnboundLocalError:
+                    n += 1
+                    print(f"We try again for the {n}th time")
+                    continue
+                else:
+                    stream_df = pd.read_pickle("log/test/EXCHANGE_AGENT.bz2")
+                    stream_processed = convert_stream_to_format(stream_df.reset_index(), fmt='plot-scripts')
+                    stream_processed = stream_processed.set_index('TIMESTAMP')
+                    cleaned_orderbook = stream_processed
+                    if cleaned_orderbook.shape[0] != 0:
 
-            #change true to 1 and false to 0 in buy_sell_flag
-            cleaned_orderbook['BUY_SELL_FLAG'] = cleaned_orderbook['BUY_SELL_FLAG'].astype(int)
+                        #change true to 1 and false to 0 in buy_sell_flag
+                        cleaned_orderbook['BUY_SELL_FLAG'] = cleaned_orderbook['BUY_SELL_FLAG'].astype(int)
 
-            # change "LIMIT_ORDER" to 0, "ORDER_EXECUTED" to 1, "ORDER_CANCELLED" to 2
-            cleaned_orderbook['TYPE'] = cleaned_orderbook['TYPE'].replace('LIMIT_ORDER', 0)
-            cleaned_orderbook['TYPE'] = cleaned_orderbook['TYPE'].replace('ORDER_EXECUTED', 1)
-            cleaned_orderbook['TYPE'] = cleaned_orderbook['TYPE'].replace('ORDER_CANCELLED', 2)
-            
-            #set index as TIMESTAMP column
-            cleaned_orderbook = cleaned_orderbook.rename_axis('TIMESTAMP').reset_index()
-            
-            if n:
-                # keep rows with index smaller than Datetime n
-                cleaned_orderbook = cleaned_orderbook[cleaned_orderbook['TIMESTAMP'] < n]
+                        # change "LIMIT_ORDER" to 0, "ORDER_EXECUTED" to 1, "ORDER_CANCELLED" to 2
+                        cleaned_orderbook['TYPE'] = cleaned_orderbook['TYPE'].replace('LIMIT_ORDER', 0)
+                        cleaned_orderbook['TYPE'] = cleaned_orderbook['TYPE'].replace('ORDER_EXECUTED', 1)
+                        cleaned_orderbook['TYPE'] = cleaned_orderbook['TYPE'].replace('ORDER_CANCELLED', 2)
+                        
+                        #set index as TIMESTAMP column
+                        cleaned_orderbook = cleaned_orderbook.rename_axis('TIMESTAMP').reset_index()
+                        
+                        if n:
+                            # keep rows with index smaller than Datetime n
+                            cleaned_orderbook = cleaned_orderbook[cleaned_orderbook['TIMESTAMP'] < n]
 
-            #make headers the first row
-            cleaned_orderbook.loc[0] = cleaned_orderbook.columns
+                        #make headers the first row
+                        cleaned_orderbook.loc[0] = cleaned_orderbook.columns
 
-            result.append(cleaned_orderbook.to_numpy())
+                        result.append(cleaned_orderbook.to_numpy())
+                        break
+                    else:
+                        n += 1
+                        print(f"We try again for the {n}th time")
+                        continue
 
         return result
 
@@ -491,7 +505,7 @@ def experiment1():
     from abcpy.inferences import SMCABC
     
     try:
-        journal = Journal.fromFile(f"Results/experiment1.1/experiment1.1.1/journal.jrnl")
+        journal = Journal.fromFile(f"Results/experiment1.1/experiment1.1.1/journal_big.jrnl")
     except FileNotFoundError:
         import time
         start_time = time.time()
@@ -507,16 +521,16 @@ def experiment1():
         journal = sampler.sample([observation], steps, n_samples,
                                     n_samples_per_param, full_output = full_output)
         # save the final journal file
-        journal.save(f"Results/experiment1.1/experiment1.1.1/journal.jrnl")
+        journal.save(f"Results/experiment1.1/experiment1.1.1/journal_big.jrnl")
     
         end_time = time.time()
         # save time taken¨
-        with open("Results/experiment1.1/experiment1.1.1/duration.txt", "w") as f:
+        with open("Results/experiment1.1/experiment1.1.1/duration_big.txt", "w") as f:
             f.write(str(end_time - start_time))
 
-"""posterior_samples = np.array(journal.get_accepted_parameters()).squeeze()
-    print(posterior_samples.shape)
-    print(np.mean(posterior_samples, axis=0))"""
+        return journal
+
+
 
 
 
@@ -586,8 +600,28 @@ def experiment2(i, N):
             f.write(str(end_time - start_time))
 
 if __name__ == "__main__":
-    experiment1()
+    journal = experiment1()
+
+    ### Experiment 1.1 analysis
+    true_parameter_values = [50, 25, 10]
+
+    journal.plot_posterior_distr(double_marginals_only = True, show_samples = False, iteration =None,
+                            true_parameter_values = true_parameter_values,
+                            path_to_save = "Figures/experiment1/posterior_distribution_exp1.1_big.pdf")
+
+    fig, ax = journal.plot_ESS()
+    fig.savefig("Figures/experiment1/ESS_exp1.1_big.pdf")
+    plt.close(fig)
+
+    fig, ax, wass_dist_lists = journal.Wass_convergence_plot()
+    fig.savefig("Figures/experiment1/Wass_exp1.1_big.pdf")
+
+
+
     #experiment2()
+
+    
+
 
 
 

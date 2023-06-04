@@ -22,7 +22,7 @@ from bap.inference_functions import Model, SummaryStatistics
 os.makedirs("Results", exist_ok = True)
 
 
-class InferenceAgent(TradingAgent):
+class ExperimentAgent1(TradingAgent):
     """
     Simple Trading Agent that compares the 20 past mid-price observations with the 50 past observations and places a
     buy limit order if the 20 mid-price average >= 50 mid-price average or a
@@ -99,7 +99,7 @@ class InferenceAgent(TradingAgent):
                 #time the inference
                 start_time = time.time()
 
-                model, journal = InferenceAgent.infer(history, n)
+                model, journal = ExperimentAgent1.infer(history, n)
 
                 end_time = time.time()
                 print("time taken:", end_time - start_time)
@@ -258,7 +258,6 @@ class InferenceAgent(TradingAgent):
             # Notice: Models not parallelized by MPI should not be given process_per_model > 1
             return backend"""
 
-        backend = setup_backend()
 
         from abcpy.continuousmodels import Uniform
 

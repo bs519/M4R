@@ -12,9 +12,9 @@ sys.path.append(p)
 
 def experiment3():
     for i in tqdm([1, 2, 3, 5, 10]):
-        for j in ["00:05:00", "00:15:00", "00:30:00", "01:00:00", "2:00:00"]:
+        for j in ["00:05:00", "00:15:00", "00:30:00", "01:00:00", "1:30:00"]:
             print(f"Simulation {i} with wakeup time {j}")
-            subprocess.run([f"python3 -u abides.py -c bap -t ABM -d 20200603 '9:30:00' '10:00:00' -l experiment_3 -o 1 -j 1 -x experiment1.2/experiment1.2.1 -y {i} -w {j}"], shell=True)
+            subprocess.run([f"python3 -u abides.py -c bap -t ABM -d 20200603 --start-time '9:30:00' --end-time '11:30:00' -l experiment_3 -o 1 -i 1 -x experiment1.2/experiment1.2.1 -y {i} -w {j}"], shell=True)
 
 
 if __name__=='__main__':

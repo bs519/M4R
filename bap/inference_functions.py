@@ -128,33 +128,47 @@ class Model(ProbabilisticModel, Continuous):
             end_sim = "11:30:00"
             n = None
         for i in range(k):
-            #### make python file execute powershell command with parameters as config
-            subprocess.run([f"python3 -u abides.py -c bap -t ABM -d 20200603 '9:30:00' {end_sim.strftime('%H:%M:%S')} -l inference -n {num_noise} -m {num_momentum_agents} -a {num_value} -z {self.starting_cash} -r {self.r_bar} -g {self.sigma_n} -k {self.kappa} -b {self.lambda_a}"], shell=True)
-            
-            stream_df = pd.read_pickle("log/inference/EXCHANGE_AGENT.bz2")
-            stream_processed = convert_stream_to_format(stream_df.reset_index(), fmt='plot-scripts')
-            stream_processed = stream_processed.set_index('TIMESTAMP')
-            cleaned_orderbook = stream_processed
+            cleaned_orderbook = np.array([])
+            n = 0
+            while True:
+                try:
+                    #### make python file execute powershell command with parameters as config
+                    subprocess.run([f"python3 -u abides.py -c bap -t ABM -d 20200603 --start-time '9:30:00' --end-time {end_sim.strftime('%H:%M:%S')} -l inference -n {num_noise} -m {num_momentum_agents} -a {num_value} -z {self.starting_cash} -r {self.r_bar} -g {self.sigma_n} -k {self.kappa} -b {self.lambda_a}"], shell=True)
+                except UnboundLocalError:
+                    n += 1
+                    print(f"We try again for the {n}th time")
+                    continue
+                else:
+                    stream_df = pd.read_pickle("log/inference/EXCHANGE_AGENT.bz2")
+                    stream_processed = convert_stream_to_format(stream_df.reset_index(), fmt='plot-scripts')
+                    stream_processed = stream_processed.set_index('TIMESTAMP')
+                    cleaned_orderbook = stream_processed
 
-            #change true to 1 and false to 0 in buy_sell_flag
-            cleaned_orderbook['BUY_SELL_FLAG'] = cleaned_orderbook['BUY_SELL_FLAG'].astype(int)
+                    if cleaned_orderbook.shape[0] != 0:
+                        #change true to 1 and false to 0 in buy_sell_flag
+                        cleaned_orderbook['BUY_SELL_FLAG'] = cleaned_orderbook['BUY_SELL_FLAG'].astype(int)
 
-            # change "LIMIT_ORDER" to 0, "ORDER_EXECUTED" to 1, "ORDER_CANCELLED" to 2
-            cleaned_orderbook['TYPE'] = cleaned_orderbook['TYPE'].replace('LIMIT_ORDER', 0)
-            cleaned_orderbook['TYPE'] = cleaned_orderbook['TYPE'].replace('ORDER_EXECUTED', 1)
-            cleaned_orderbook['TYPE'] = cleaned_orderbook['TYPE'].replace('ORDER_CANCELLED', 2)
-            
-            #set index as TIMESTAMP column
-            cleaned_orderbook = cleaned_orderbook.rename_axis('TIMESTAMP').reset_index()
-            
-            if n:
-                # keep rows with index smaller than Datetime n
-                cleaned_orderbook = cleaned_orderbook[cleaned_orderbook['TIMESTAMP'] < n]
+                        # change "LIMIT_ORDER" to 0, "ORDER_EXECUTED" to 1, "ORDER_CANCELLED" to 2
+                        cleaned_orderbook['TYPE'] = cleaned_orderbook['TYPE'].replace('LIMIT_ORDER', 0)
+                        cleaned_orderbook['TYPE'] = cleaned_orderbook['TYPE'].replace('ORDER_EXECUTED', 1)
+                        cleaned_orderbook['TYPE'] = cleaned_orderbook['TYPE'].replace('ORDER_CANCELLED', 2)
+                        
+                        #set index as TIMESTAMP column
+                        cleaned_orderbook = cleaned_orderbook.rename_axis('TIMESTAMP').reset_index()
+                        
+                        if n:
+                            # keep rows with index smaller than Datetime n
+                            cleaned_orderbook = cleaned_orderbook[cleaned_orderbook['TIMESTAMP'] < n]
 
-            #make headers the first row
-            cleaned_orderbook.loc[0] = cleaned_orderbook.columns
+                        #make headers the first row
+                        cleaned_orderbook.loc[0] = cleaned_orderbook.columns
 
-            result.append(cleaned_orderbook.to_numpy())
+                        result.append(cleaned_orderbook.to_numpy())
+                        break
+                    else:
+                        n += 1
+                        print(f"We try again for the {n}th time")
+                        continue
 
         return result
     
