@@ -2,6 +2,7 @@ import subprocess
 from tqdm import tqdm
 
 import sys
+import os
 from pathlib import Path
 p = str(Path(__file__).resolve().parents[1])  # directory one level up from this file
 sys.path.append(p)
@@ -14,8 +15,19 @@ sys.path.append(p)
 def experiment4(sim_number, start_sim_time):
     for i in tqdm([0.1, 0.5, 1, 2, 5, 10, 25]):
         print(f"Simulation with m = {i}")
-        subprocess.run([f"python3 -u abides.py -c bap -t ABM -d 20200603 --start-time '9:30:00' --end-time '11:00:00' -l experiment_4 -o 1 -i 1 -x experiment1.2/experiment1.2.2 -y {sim_number} -w {start_sim_time}"], shell=True)
-
+        # create repository for results and add folder name to bap config file
+        os.makedirs(f"Results/experiment1.2/experiment1.2.2/{i}", exist_ok=True)
+        l = 0
+        while l<10:
+            try:
+                subprocess.run([f"python3 -u abides.py -c bap -t ABM -d 20200603 --start-time '9:30:00' --end-time '11:00:00' -l experiment_4 -o 1 -i 1 -x experiment1.2/experiment1.2.2/ -y {sim_number} -w {start_sim_time}"], shell=True)
+            except subprocess.CalledProcessError as e:
+                print("error:", e.output)
+                j += 1
+                print(f"We try again for the {j}th time")
+                continue
+            else:
+                break
 
 if __name__=='__main__':
     optimal_sim_number = 5

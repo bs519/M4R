@@ -57,7 +57,7 @@ print("time taken:", end_time - start_time)"""
 
 #do the same with multiprocessing
 
-from multiprocessing import get_context
+"""from multiprocessing import get_context
 import multiprocessing as mp
 
 
@@ -65,12 +65,12 @@ def run_simulation(i):
         cleaned_orderbook = np.array([])
         n = 0
         while True:
-            n += 1
-            print("n:", n)
             try:
                 # +self.sim_time} "
                 subprocess.run([f"python3 -u abides.py -c bap -t ABM -d {historical_date} {startsimTime} {endsimTime} -l test_{i} -n {num_noise} -m {num_momentum} -a {num_value}"], shell=True)
             except UnboundLocalError:
+                n += 1
+                print(f"We try again for the {n}th time")
                 continue
             else:
                 processed_orderbook =  make_orderbook_for_analysis(f"log/test_{i}/EXCHANGE_AGENT.bz2", f"log/test_{i}/ORDERBOOK_ABM_FULL.bz2", num_levels=1,
@@ -88,12 +88,32 @@ def run_simulation(i):
                 else:
                     continue
         
-        return cleaned_orderbook
+        return cleaned_orderbook"""
 
 
 #@jit(nopython=True)
 if __name__ == '__main__':
-    from multiprocessing import set_start_method
+    
+    for i in range(10):
+        j = 0
+        while j<10:
+            try:
+                subprocess.check_output("python3 -u abides.py -c bap -t ABM -d 20200603 --start-time '09:30:00' --end-time '10:00:00' -o 1 -i 1", shell=True)
+            except subprocess.CalledProcessError as e:
+                print("error:", e.output)
+                j += 1
+                print(f"We try again for the {j}th time")
+                continue
+            else:
+                break
+
+
+
+
+
+
+    
+    """from multiprocessing import set_start_method
     set_start_method("spawn")
 
     print(mp.cpu_count())
@@ -108,7 +128,7 @@ if __name__ == '__main__':
     print("time taken:", end_time - start_time)
 
     print("results:", results[0].shape)
-    print("results full:", pd.concat(results))
+    print("results full:", pd.concat(results))"""
 
 
 

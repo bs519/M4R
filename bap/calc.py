@@ -1,4 +1,5 @@
 import time
+import pandas as pd
 start_time = time.time()
 
 it_time = 21
@@ -6,6 +7,8 @@ it_time = 21
 # optimal step and particle number
 print("ex1.1 steps, N=20:", it_time*20*6/60/60)
 print("ex1.1 steps, N=50:", it_time*50*8/60/60)
+
+# optimal step and particle number + large wake up time
 print("ex1.2.1 steps=5, N=20:", it_time*20*3/60+3*(1+2+3+5+10)+5)
 
 # even if optimal step and particle number are different, use these parameters to not waste time
@@ -23,9 +26,10 @@ print("ex2.1.2 steps=3, N=10 number of agents={1,2,3,4,5}:", (it_time*10*3/60+10
 
 #volume experiment, optimal step + particle number, simulation number and start time, don't do it 5 times so per computer
 print("ex2.2 steps=3, N=10, number of agents={1,5}, volume={?, 10 values}:", (it_time*10*3/60*2+10*11+5)/60)
-
+pd.DataFrame([["ex1.1", "20", "6", "20", "0.1", "0.5", "1", "2", "5", "10", "25"]]).to_csv("ex1.1.csv", index=False, header=False)
 
 
 
 end_time = time.time()
+
 

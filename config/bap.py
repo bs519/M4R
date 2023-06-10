@@ -114,21 +114,26 @@ parser.add_argument("-i",
                     type=float,
                     default= 0,
                     help= "Number of inference agent")
-parser.add_argument("-j",
-                    "--exp1-agents",
-                    type=float,
-                    default= 0,
-                    help= "Number of inference agent used in experiment 1.2.1")
-parser.add_argument("-q",
-                    "--exp2-agents",
-                    type=float,
-                    default= 0,
-                    help= "Number of inference agent used in experiment 1.2.2")
 parser.add_argument("-x",
                     "--print-means",
-                    type=bool,
+                    type=str,
                     default= False,
                     help= "directory to store mean of agents in Results folder")
+parser.add_argument("-j",
+                    "--print-means2",
+                    type=str,
+                    default= False,
+                    help= "second directory to store mean of agents in Results folder")
+parser.add_argument("-q",
+                    "--print-means3",
+                    type=str,
+                    default= False,
+                    help= "third directory to store mean of agents in Results folder")
+parser.add_argument("--print-means4",
+                    type=str,
+                    default= False,
+                    help= "third directory to store mean of agents in Results folder")
+
 parser.add_argument("-y",
                     "--simulation-number",
                     type=int,
@@ -137,13 +142,14 @@ parser.add_argument("-y",
 parser.add_argument("-w",
                     "--wakeup-time",
                     type=str,
-                    default= "00:30:00",
+                    default= "02:00:00",
                     help= "Time to wake up inference and zero intelligence agents")
 parser.add_argument("-f",
                     "--mpar",
                     type=float,
                     default= 2,
                     help= "m parameter of Bollinger Band")
+
 
 # Hyperparameters for inference config
 parser.add_argument("-z",
@@ -226,10 +232,6 @@ if args.config_help:
 
 if round(args.inference_agents)>0:
     from agent.InferenceAgent import InferenceAgent
-if round(args.exp1_agents)>0:
-    from agent.ExperimentAgent1 import ExperimentAgent1
-if round(args.exp2_agents)>0:
-    from agent.ExperimentAgent2 import ExperimentAgent2
 
 
 log_dir = args.log_dir  # Requested log directory.
@@ -460,6 +462,7 @@ agents.extend([ZeroIntelligenceAgent(id=j,
 agent_types.extend("ZeroIntelligenceAgent")
 agent_count += num_zi_agents
 
+####### if using HBL, implement wake up time like done with Zero intelligence agent
 # 8) Heuristic Belief Learning Agents
 num_hbl_agents = round(args.hbl_agents)
 agents.extend([HeuristicBeliefLearningAgent(id=j,
@@ -503,7 +506,6 @@ agents.extend([InferenceAgent(id=j,
                              random_state=np.random.RandomState(seed=np.random.randint(low=0, high=2 ** 32,
                                                                                        dtype='uint64')),
                              init_wakeup_time=wake_up_time,
-                             sim_time="00:00:00",
                              mkt_open=mkt_open,
                              mkt_close=mkt_close,
                              k=sim_num,
@@ -512,57 +514,7 @@ agents.extend([InferenceAgent(id=j,
 agent_count += num_inference_agents
 agent_types.extend("InferenceAgent")
 
-# 10) Inference Agent experiment 1.2.1
-num_ex1_agents = round(args.exp1_agents)
-sim_num = args.simulation_number
 
-agents.extend([ExperimentAgent1(id=j,
-                             name="INFERENCE_AGENT_EXP1{}".format(j),
-                             type="InferenceAgentExp1",
-                             symbol=symbol,
-                             starting_cash=starting_cash,
-                             min_size=1,
-                             max_size=10,
-                             wake_up_freq='60s',
-                             L=5000,
-                             log_orders=log_orders,
-                             random_state=np.random.RandomState(seed=np.random.randint(low=0, high=2 ** 32,
-                                                                                       dtype='uint64')),
-                             init_wakeup_time=wake_up_time,
-                             sim_time="00:00:00",
-                             mkt_open=mkt_open,
-                             mkt_close=mkt_close,
-                             k=sim_num,
-                             m=m)
-               for j in range(agent_count, agent_count + num_ex1_agents)])
-agent_count += num_ex1_agents
-agent_types.extend("InferenceAgentExp1")
-
-# 11) Inference Agent experiment 1.2.2
-num_ex2_agents = round(args.exp2_agents)
-sim_num = args.simulation_number
-
-agents.extend([ExperimentAgent2(id=j,
-                             name="INFERENCE_AGENT_EXP2{}".format(j),
-                             type="InferenceAgentExp2",
-                             symbol=symbol,
-                             starting_cash=starting_cash,
-                             min_size=1,
-                             max_size=10,
-                             wake_up_freq='60s',
-                             L=5000,
-                             log_orders=log_orders,
-                             random_state=np.random.RandomState(seed=np.random.randint(low=0, high=2 ** 32,
-                                                                                       dtype='uint64')),
-                             init_wakeup_time=wake_up_time,
-                             sim_time="00:00:00",
-                             mkt_open=mkt_open,
-                             mkt_close=mkt_close,
-                             k=sim_num,
-                             m=m)
-               for j in range(agent_count, agent_count + num_ex2_agents)])
-agent_count += num_ex2_agents
-agent_types.extend("InferenceAgentExp2")
 
 ########################################################################################################################
 ########################################### KERNEL AND OTHER CONFIG ####################################################
@@ -603,7 +555,7 @@ kernel.runner(agents=agents,
               agentLatencyModel=latency_model,
               defaultComputationDelay=defaultComputationDelay,
               oracle=oracle,
-              log_dir=args.log_dir, save_means = args.print_means)
+              log_dir=args.log_dir, save_means = args.print_means) # '/'.join([args.print_means, args.print_means2, args.print_means3, args.print_means4]))
 
 
 simulation_end_time = dt.datetime.now()

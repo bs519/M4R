@@ -5,7 +5,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 import subprocess
 from math import trunc
-
+import scipy as sp
 
 from abcpy.probabilisticmodels import ProbabilisticModel, Continuous, InputConnector
 from abcpy.statistics import Statistics
@@ -23,9 +23,73 @@ from util.formatting.convert_order_stream import convert_stream_to_format
 os.makedirs("Results", exist_ok = True)
 
 
-# Test: we perform inference on the number of noise, momentum and value agents
+from abcpy.distances import Distance
 
-#from plotting.sumstats import make_sumstats as make_sumstats
+
+
+
+class KS_statistic(Distance):
+    """
+    This class implements the Kolmogorov-Smirnov statistic between two vectors.
+
+    The maximum value of the distance is np.inf.
+
+    Parameters
+    ----------
+    statistics_calc : abcpy.statistics.Statistics
+        Statistics extractor object that conforms to the Statistics class.
+
+    """
+
+    def __init__(self, statistics_calc):
+        super(KS_statistic, self).__init__(statistics_calc)
+    
+    def distance(self, d1, d2):
+
+        s1, s2 = self._calculate_summary_stat(d1, d2)
+
+        dist_matrix = np.zeros(shape=(s1.shape[0], s2.shape[0]))
+
+        for ind1 in range(0, s1.shape[0]):
+            s1 = s1[ind1]
+            for ind2 in range(0, s2.shape[0]):
+                s2 = s2[ind2]
+                for s in [s1,s2]:
+                    buy_sell_flag = s[:, -2]  # Extract the buy/sell flag column
+                    types = s[:, -1]  # Extract the type column
+
+                    # Create separate arrays for each combination of buy/sell flag and type
+                    if s is s1:
+                        arrays1 = {}
+                    if s is s2:
+                        arrays2 = {}
+
+                    for flag in [0, 1]:
+                        for t in [0, 1, 2]:
+                            mask = np.logical_and(buy_sell_flag == flag, types == t)
+                            if s is s1:
+                                arrays1[(flag, t)] = s[mask]
+                            if s is s2:
+                                arrays2[(flag, t)] = s[mask]
+
+
+                dist = np.zeros(shape=(2, 3, s1.shape[0], s2.shape[0]))
+                for flag in [0, 1]:
+                    for t in [0, 1, 2]:
+                        s1_small = arrays1[(flag, t)]
+                        s2_small = arrays2[(flag, t)]
+                        if s1_small.shape[0] != 0 and s2_small.shape[0] != 0:
+                            # compute distance between the statistics
+                            dist[flag, t, ind1, ind2] = (sp.stats.ks_2samp(s1_small[:, 1], s2_small[:, 1]).statistic + sp.stats.ks_2samp(s1_small[:, 2], s2_small[:, 2]).statistic)/2
+
+                dist_matrix[ind1, ind2] = np.mean(dist)
+
+        return dist_matrix.mean()
+    
+    def dist_max(self):
+        return np.inf
+
+
 
 class Model(ProbabilisticModel, Continuous):
     """
@@ -121,30 +185,30 @@ class Model(ProbabilisticModel, Continuous):
         """
 
         result = []
-        if self.n:
-            n = self.n
-            end_sim = n + timedelta(minutes=1)
-        else:
-            end_sim = "11:30:00"
-            n = None
+        n = self.n
+        end_sim = n + timedelta(minutes=5)
         for i in range(k):
             cleaned_orderbook = np.array([])
-            n = 0
+            j = 0
             while True:
                 try:
                     #### make python file execute powershell command with parameters as config
                     subprocess.run([f"python3 -u abides.py -c bap -t ABM -d 20200603 --start-time '9:30:00' --end-time {end_sim.strftime('%H:%M:%S')} -l inference -n {num_noise} -m {num_momentum_agents} -a {num_value} -z {self.starting_cash} -r {self.r_bar} -g {self.sigma_n} -k {self.kappa} -b {self.lambda_a}"], shell=True)
-                except UnboundLocalError:
-                    n += 1
-                    print(f"We try again for the {n}th time")
+                except Exception as e:
+                    print("An error occurred:", str(e))
+                    j += 1
+                    print(f"We try again for the {j}th time")
                     continue
                 else:
                     stream_df = pd.read_pickle("log/inference/EXCHANGE_AGENT.bz2")
                     stream_processed = convert_stream_to_format(stream_df.reset_index(), fmt='plot-scripts')
                     stream_processed = stream_processed.set_index('TIMESTAMP')
                     cleaned_orderbook = stream_processed
+                    #obtain latest time of the orderbook
+                    last_time = cleaned_orderbook.index[-1]
+                    start_time = cleaned_orderbook.index[0]
 
-                    if cleaned_orderbook.shape[0] != 0:
+                    if cleaned_orderbook.shape[0] != 0 and last_time > start_time + pd.to_timedelta("3min"):
                         #change true to 1 and false to 0 in buy_sell_flag
                         cleaned_orderbook['BUY_SELL_FLAG'] = cleaned_orderbook['BUY_SELL_FLAG'].astype(int)
 
@@ -156,9 +220,8 @@ class Model(ProbabilisticModel, Continuous):
                         #set index as TIMESTAMP column
                         cleaned_orderbook = cleaned_orderbook.rename_axis('TIMESTAMP').reset_index()
                         
-                        if n:
-                            # keep rows with index smaller than Datetime n
-                            cleaned_orderbook = cleaned_orderbook[cleaned_orderbook['TIMESTAMP'] < n]
+                        # keep rows with index smaller than Datetime n
+                        cleaned_orderbook = cleaned_orderbook[cleaned_orderbook['TIMESTAMP'] < n]
 
                         #make headers the first row
                         cleaned_orderbook.loc[0] = cleaned_orderbook.columns
@@ -166,8 +229,8 @@ class Model(ProbabilisticModel, Continuous):
                         result.append(cleaned_orderbook.to_numpy())
                         break
                     else:
-                        n += 1
-                        print(f"We try again for the {n}th time")
+                        j += 1
+                        print(f"We try again for the {j}th time")
                         continue
 
         return result

@@ -330,10 +330,17 @@ class Kernel:
         m_list.append(int(round(value / count)))
       means = pd.DataFrame(m_list, index=self.agentCountByType.keys(), columns=['mean'])
       
-      #create directory if it doesn't exist
-      if not os.path.exists(f'Results/{save_means}'):
-        os.makedirs(f'Results/{save_means}')
-      means.to_csv(f'Results/{save_means}/means.csv')
+      if type(save_means)==str:
+        #create directory if it doesn't exist
+        dir_means = '/'.join(['Results', save_means])
+        if not os.path.exists(dir_means):
+          os.makedirs(dir_means)
+        means.to_csv('/'.join([dir_means, 'means.csv']))
+      else:
+        #create directory if it doesn't exist
+        if not os.path.exists(f'Results/{save_means}'):
+          os.makedirs(f'Results/{save_means}')
+        means.to_csv(f'Results/{save_means}/means.csv')
 
     print ("Simulation ending!")
 

@@ -31,7 +31,7 @@ class InferenceAgent(TradingAgent):
 
     def __init__(self, id, name, type, symbol, starting_cash,
                  min_size, max_size, wake_up_freq='60s',
-                 subscribe=False, L=5000, log_orders=False, random_state=None, init_wakeup_time="00:30:00", #500, find how many in orders in first 30 minutes
+                 subscribe=False, L=5000, log_orders=False, random_state=None, init_wakeup_time="02:00:00", #500, find how many in orders in first 30 minutes
                  mkt_open=pd.to_datetime("20200603")+ pd.to_timedelta("09:30:00"),
                  mkt_close= pd.to_datetime("20200603")+ pd.to_timedelta("11:30:00"), k=5, m=2):
 
@@ -50,7 +50,7 @@ class InferenceAgent(TradingAgent):
         self.init_wakeup_time = pd.to_timedelta(init_wakeup_time)
         self.sim_time =  pd.to_timedelta(wake_up_freq) #pd.to_timedelta(sim_time)?
         self.historical_date = int(mkt_open.date().strftime('%Y%m%d'))
-        self.startsimTime = mkt_open.time().strftime('%H:%M:%S') + pd.to_timedelta(init_wakeup_time)
+        self.startsimTime = str(mkt_open.time().strftime('%H:%M:%S') + pd.to_timedelta(init_wakeup_time))[slice(7,15)]
         self.endsimTime = mkt_close.time().strftime('%H:%M:%S')  
         self.k = k
         self.sim_num = k
@@ -82,26 +82,32 @@ class InferenceAgent(TradingAgent):
         super().receiveMessage(currentTime, msg)
         
         if currentTime >= self.mkt_open + self.init_wakeup_time and not self.sim_check:
-            print("initiating inference")
+            print("initiating set up task")
             try:
-                journal = Journal.fromFile("Results/test_inference_agent_2.jrnl")
+                #journal = Journal.fromFile(f"Results/inference_agent_{self.init_wakeup_time}_{self.k}_{self.m}.jrnl") #### comment once parameter saving fixed
+                # Instead of reading the large journal file, we read the parameter file
+                num_noise, num_momentum, num_value = np.genfromtxt(f"Results/inf_params/params_{self.init_wakeup_time}_{self.k}_{self.m}.txt")
+                print("Parameters loaded")
             except FileNotFoundError:
                 print("Run with inference SMCABC")
                 history = self.stream_history[self.symbol]
                 # convert orderbook history ot the format required by the inference method
                 history = self.format_history(history)
                 history = [np.array([history.to_numpy()])]
-                ### GET RID OF N and test if it works
                 n = history[0][0][-1, 0]
-                model, journal = InferenceAgent.infer(history, n)
+                journal = InferenceAgent.infer(history, n)
+
                 # save the final journal file, depending on the experiment
-                journal.save("Results/test_inference_agent_2.jrnl")
-            posterior_samples = np.array(journal.get_accepted_parameters()).squeeze()
-            parameters = np.mean(posterior_samples, axis=0)
-            num_noise, num_momentum, num_value = parameters
+                #journal.save(f"Results/inference_agent_{self.init_wakeup_time}_{self.k}_{self.m}.jrnl")  #### comment once parameter saving fixed
+                # Since the file is too large, instead we save only the estimates
+                posterior_samples = np.array(journal.get_accepted_parameters()).squeeze()
+                parameters = np.mean(posterior_samples, axis=0)
+                num_noise, num_momentum, num_value = parameters
+                # save these parameters to a txt file
+                np.savetxt(f"Results/inf_params/params_{self.init_wakeup_time}_{self.k}_{self.m}.txt", (num_noise, num_momentum, num_value))
+                journal = 0
 
-
-            def run_simulation(i):
+            def run_simulation():
                 cleaned_orderbook = np.array([])
                 while True:
                     try:
@@ -110,8 +116,8 @@ class InferenceAgent(TradingAgent):
                         print("Simulation error, we will try again")
                         continue
                     else:
-                        processed_orderbook =  make_orderbook_for_analysis("log/inference_agent_sim/EXCHANGE_AGENT.bz2", f"log/inference_agent_sim/ORDERBOOK_ABM_FULL.bz2", num_levels=1,
-                                                                        hide_liquidity_collapse=False) # estimates parameters
+                        processed_orderbook =  make_orderbook_for_analysis("log/inference_agent_sim/EXCHANGE_AGENT.bz2", "log/inference_agent_sim/ORDERBOOK_ABM_FULL.bz2", num_levels=1,
+                                                                            hide_liquidity_collapse=False) # estimates parameters
                         cleaned_orderbook = processed_orderbook[(processed_orderbook['MID_PRICE'] > - MID_PRICE_CUTOFF) &
                                                                 (processed_orderbook['MID_PRICE'] < MID_PRICE_CUTOFF)]
                         
@@ -129,21 +135,7 @@ class InferenceAgent(TradingAgent):
             print("simulating")
             for i in range(self.sim_num): #self.sim_num):
                 print(f"Simulation {i+1} of {self.sim_num}")
-                
-                """subprocess.run([f"python3 -u abides.py -c bap -t ABM -d {self.historical_date} --start-time {self.startsimTime} --end-time {self.endsimTime} -l inference_agent_sim -n {num_noise} -m {num_momentum} -a {num_value} -z {self.starting_cash} -r {self.r_bar} -g {self.sigma_n} -k {self.kappa} -b {self.lambda_a}"], shell=True)
-            
-                processed_orderbook =  make_orderbook_for_analysis("log/inference_agent_sim/EXCHANGE_AGENT.bz2", "log/inference_agent_sim/ORDERBOOK_ABM_FULL.bz2", num_levels=1,
-                                                                hide_liquidity_collapse=False) # estimates parameters
-                cleaned_orderbook = processed_orderbook[(processed_orderbook['MID_PRICE'] > - MID_PRICE_CUTOFF) &
-                                                        (processed_orderbook['MID_PRICE'] < MID_PRICE_CUTOFF)]
-                #remove nan value in first row
-                #cleaned_orderbook = cleaned_orderbook.drop(cleaned_orderbook.index[0])
-                
-                #get rid of columns that are not needed, only keep MID_PRICE
-                ##### try with price instead of mid price
-                cleaned_orderbook = cleaned_orderbook.drop(['ORDER_ID', 'PRICE', 'SIZE', 'BUY_SELL_FLAG', 'ask_price_1', 'ask_size_1','bid_price_1',
-                                                            'bid_size_1','SPREAD','ORDER_VOLUME_IMBALANCE','VWAP'], axis=1)"""
-                cleaned_orderbook = run_simulation(i)
+                cleaned_orderbook = run_simulation()
 
                 if i == 0:
                     sim_orderbook = cleaned_orderbook.copy()
@@ -182,13 +174,10 @@ class InferenceAgent(TradingAgent):
         if bid and ask:
             m= self.m
             
+            # An improvement to save some memory would be to compute this mid price mean and standard deviation before in the setup
+            # part for every wake up time adn store this much shorter time series instead of the whole simulations time series.
             #get the simulated orderbook
             sim_orderbook = self.sim_OB.copy()
-            """sim_orderbook = pd.read_csv("Results/sim_orderbook.csv")
-            # rename the first column to TIMESTAMP
-            sim_orderbook = sim_orderbook.rename(columns={sim_orderbook.columns[0]: "TIMESTAMP"})
-            #set the index to TIMESTAMP
-            sim_orderbook = sim_orderbook.set_index("TIMESTAMP")"""
 
             #obtain the average price around the current time
             sim_orderbook = sim_orderbook[(sim_orderbook.index > currentTime) & (sim_orderbook.index < currentTime+self.sim_time)]
@@ -277,8 +266,8 @@ class InferenceAgent(TradingAgent):
         statistics_calculator = SummaryStatistics(degree = 1, cross = False)
 
         # Define distance
-        from abcpy.distances import Euclidean
-        distance_calculator = Euclidean(statistics_calculator)
+        from bap.inference_functions import KS_statistic
+        distance_calculator = KS_statistic(statistics_calculator)
         # Define perturbation kernel
         from abcpy.perturbationkernel import DefaultKernel
         kernel = DefaultKernel([noise, momentum, value])
@@ -288,14 +277,9 @@ class InferenceAgent(TradingAgent):
         sampler = SMCABC([model], [distance_calculator], backend, kernel, seed = 1)
         # Define sampling parameters
         #full output = 0 for no intermediary values
-        steps, n_samples, n_samples_per_param, full_output = 3, 5, 1, 0
+        steps, n_samples, n_samples_per_param, full_output = 1, 2, 1, 0 # 4, 10
         # Sample
         journal = sampler.sample([history], steps, n_samples,
                                 n_samples_per_param, full_output = full_output)
         
-        return model, journal
-
-"""historical_date = pd.to_datetime("20200603")
-mkt_open = historical_date + pd.to_timedelta("9:30:00".strftime('%H:%M:%S'))
-print("testing")
-InferenceAgent.placeOrders(1001, 999, [50, 25, 10], mkt_open, mkt_open+ pd.to_timedelta("00:30:00".strftime('%H:%M:%S')), k=1)"""
+        return journal

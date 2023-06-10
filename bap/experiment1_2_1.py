@@ -1,5 +1,6 @@
 import subprocess
 from tqdm import tqdm
+import os
 
 import sys
 from pathlib import Path
@@ -10,13 +11,23 @@ sys.path.append(p)
 # even if optimal step and particle number are different, use these parameters to not waste time
 # the parameters don't impact the optimal m and simulation start time
 
-def experiment3():
-    for i in tqdm([1, 2, 3, 5, 10]):
-        for j in ["00:05:00", "00:15:00", "00:30:00", "01:00:00", "1:30:00"]:
+def experiment4():
+    for i in tqdm([1, 2, 3, 5, 10]):  ### remove tqdm when running on cluster
+        for j in ['00:15:00', '00:30:00', '01:00:00', '01:30:00', '02:00:00', '03:00:00']:
             print(f"Simulation {i} with wakeup time {j}")
-            subprocess.run([f"python3 -u abides.py -c bap -t ABM -d 20200603 --start-time '9:30:00' --end-time '11:30:00' -l experiment_3 -o 1 -i 1 -x experiment1.2/experiment1.2.1 -y {i} -w {j}"], shell=True)
-
+            os.makedirs(f"Results/experiment1.2/experiment1.2.1/{i}sim/{j}", exist_ok=True)
+            l = 0
+            while l<10:
+                try:
+                    subprocess.run([f"python3 -u abides.py -c bap -t ABM -d 20200603 --start-time '09:30:00' --end-time '13:00:00' -l experiment_3 -o 1 -i 1 -x experiment1.2/experiment1.2.1/{i}sim/{j} -y {i} -w {j}"], shell=True) #-j experiment1.2.1 -q {i}sim --print-means4 {j} -y {i} -w {j}"], shell=True)
+                except subprocess.CalledProcessError as e:
+                    print("error:", e.output)
+                    j += 1
+                    print(f"We try again for the {j}th time")
+                    continue
+                else:
+                    break
 
 if __name__=='__main__':
     
-    experiment3()
+    experiment4()
