@@ -1,1 +1,1 @@
-# M4R
+# Agent-based market bayesian inference strategy
