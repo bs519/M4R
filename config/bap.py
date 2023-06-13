@@ -87,7 +87,7 @@ parser.add_argument('-p',
 parser.add_argument("-n",
                     "--noise-agents",
                     type=float,
-                    default= 50, #5000,
+                    default= 5000,
                     help= "Number of Noise agent")
 parser.add_argument("-m",
                     "--momentum-agents",
@@ -97,7 +97,7 @@ parser.add_argument("-m",
 parser.add_argument("-a",
                     "--value-agents",
                     type=float,
-                    default= 10, #100,
+                    default= 100,
                     help= "Number of Noise agent")
 parser.add_argument("-o",
                     "--zi-agents",
@@ -119,8 +119,7 @@ parser.add_argument("-x",
                     type=str,
                     default= False,
                     help= "directory to store mean of agents in Results folder")
-parser.add_argument("-j",
-                    "--print-means2",
+"""parser.add_argument("--print-means2",
                     type=str,
                     default= False,
                     help= "second directory to store mean of agents in Results folder")
@@ -132,7 +131,7 @@ parser.add_argument("-q",
 parser.add_argument("--print-means4",
                     type=str,
                     default= False,
-                    help= "third directory to store mean of agents in Results folder")
+                    help= "third directory to store mean of agents in Results folder")"""
 
 parser.add_argument("-y",
                     "--simulation-number",
@@ -149,6 +148,11 @@ parser.add_argument("-f",
                     type=float,
                     default= 2,
                     help= "m parameter of Bollinger Band")
+parser.add_argument('-j',
+                    "--size",
+                    type = int,
+                    default=None,
+                    help= "Volumne of orders for inference agent")
 
 
 # Hyperparameters for inference config
@@ -500,6 +504,7 @@ agents.extend([InferenceAgent(id=j,
                              starting_cash=starting_cash,
                              min_size=1,
                              max_size=10,
+                             size = args.size,
                              wake_up_freq='60s',
                              L=5000,
                              log_orders=log_orders,
@@ -509,7 +514,9 @@ agents.extend([InferenceAgent(id=j,
                              mkt_open=mkt_open,
                              mkt_close=mkt_close,
                              k=sim_num,
-                             m=m)
+                             m=m,
+                             num_agents = num_inference_agents,
+                             inf_log = args.config)
                for j in range(agent_count, agent_count + num_inference_agents)])
 agent_count += num_inference_agents
 agent_types.extend("InferenceAgent")

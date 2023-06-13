@@ -88,7 +88,7 @@ class Model(ProbabilisticModel, Continuous):
     def get_output_dimension(self):
         return 2
 
-    def forward_simulate(self, parameters, k, rng = np.random.RandomState()):
+    def forward_simulate(self, parameters, k, rng=np.random.RandomState()):
         # Extract the input parameters
         num_noise = parameters[0]
         num_momentum_agents = parameters[1]
@@ -97,19 +97,12 @@ class Model(ProbabilisticModel, Continuous):
         #n_timestep = parameters[3]
 
         # Do the actual forward simulation
-        vector_of_k_samples = self.Market_sim(num_noise, num_momentum_agents, num_value, k)
+        vector_of_k_samples = self.Market_sim(num_noise, num_momentum_agents, num_value, k, rng)
         # Format the output to obey API
         result = [np.array([x]) for x in vector_of_k_samples]
         return result
-
-    """def forward_simulate_true_model(self, k, rng = np.random.RandomState()):
-        # Do the actual forward simulation
-        vector_of_k_samples = self.Market_sim_true(k, rng = rng) # is x full orderbook and y is summary statistics???
-        # Format the output to obey API
-        result = [np.array([x]) for x in vector_of_k_samples]
-        return result"""
     
-    def Market_sim(self, num_noise, num_momentum_agents, num_value, k):
+    def Market_sim(self, num_noise, num_momentum_agents, num_value, k, rng=np.random.RandomState()):
         """
         k market simulations for n_timstep time using abides package with a configuration /
         of num_noise noise agents, num_momentum momentum agents, num_value value agents.
@@ -129,17 +122,14 @@ class Model(ProbabilisticModel, Continuous):
         for i in range(k):
             cleaned_orderbook = np.array([])
             j = 0
-            while True:
+            while j < 25:
                 try:
-                    subprocess.run([f"python3 -u abides.py -c bap -t ABM -d 20200603 --end-time '11:00:00' -l test -n {num_noise} -m {num_momentum_agents} -a {num_value} -z {self.starting_cash} -r {self.r_bar} -g {self.sigma_n} -k {self.kappa} -b {self.lambda_a}"], shell=True)
-                except UnboundLocalError: #Exception as e:
-                    #print("An error occurred:", str(e))
+                    subprocess.check_output([f"python3 -u abides.py -c bap -t ABM -d 20200603 --end-time '11:00:00' -l test -n {num_noise} -m {num_momentum_agents} -a {num_value} -z {self.starting_cash} -r {self.r_bar} -g {self.sigma_n} -k {self.kappa} -b {self.lambda_a} -s {(i+1)*rng.randint(k)+16+j}"], shell=True)
+                except subprocess.CalledProcessError as e:
+                    print("An error occurred:", str(e))
                     j += 1
                     print(f"We try again for the {j}th time")
-                    if j >= 10:
-                        break
-                    else:
-                        continue
+                    continue
                 else:
                     stream_df = pd.read_pickle("log/test/EXCHANGE_AGENT.bz2")
                     stream_processed = convert_stream_to_format(stream_df.reset_index(), fmt='plot-scripts')
@@ -174,10 +164,7 @@ class Model(ProbabilisticModel, Continuous):
                     else:
                         j += 1
                         print(f"We try again for the {j}th time")
-                        if j >= 10:
-                            break
-                        else:
-                            continue
+                        continue
 
         return result
 
@@ -453,8 +440,8 @@ def experiment3(i, N):
 
 
     # Define perturbation kernel
-    from abcpy.perturbationkernel import MultivariateNormalKernel
-    kernel = MultivariateNormalKernel([noise, momentum, value])
+    from abcpy.perturbationkernel import DefaultKernel
+    kernel = DefaultKernel([noise, momentum, value])
 
     # Define backend
     from abcpy.backends import BackendDummy as Backend
@@ -493,9 +480,13 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     
     ### Experiment 1.1 analysis
-    
-    """true_parameter_values = [50, 25, 10]
+    """
+    true_parameter_values = [50, 25, 10]
     journal = experiment1()
+
+    journal.plot_posterior_distr(double_marginals_only = True, show_samples = False, iteration =None,
+                                 true_parameter_values = true_parameter_values,
+                                 path_to_save = f"Figures/experiment1/posterior_1.1_extra.pdf")
 
     for i in range(6):
         journal.plot_posterior_distr(double_marginals_only = True, show_samples = False, iteration =i,
@@ -508,55 +499,62 @@ if __name__ == "__main__":
 
     fig, ax, wass_dist_lists = journal.Wass_convergence_plot()
     fig.savefig("Figures/experiment1/Wass_exp1.1_medium.pdf")
+    """
     
     # save the final journal file
     #journal.save(f"Results/experiment1.1/experiment1.1.3/journal.jrnl")
-    """
+    
 
     ### Experiment 1.2 analysis
     
-    optimal_steps = 4 # optimal value found in 1.1
+    """optimal_steps = 4 # optimal value found in 1.1
     journal = experiment2(optimal_steps)
     true_parameter_values = [50, 25, 10]
 
     for i in [1, 5, 10, 15]:
+        journal.plot_posterior_distr(double_marginals_only = True, show_samples = False, iteration =None,
+                                     true_parameter_values = true_parameter_values,
+                                     path_to_save = f"Figures/experiment1/posterior_1.2_{i}_extra.pdf")
         for j in range(4):
             journal.plot_posterior_distr(double_marginals_only = True, show_samples = False, iteration = j,
-                                true_parameter_values = true_parameter_values,
-                                path_to_save = f"Figures/experiment1/posterior_1.2/{i}/{j}.pdf")
+                                         true_parameter_values = true_parameter_values,
+                                         path_to_save = f"Figures/experiment1/posterior_1.2/{i}/{j}.pdf")
 
         fig, ax = journal.plot_ESS()
         fig.savefig(f"Figures/experiment1/ESS_exp1.2_{i}.pdf")
         plt.close(fig)
 
         fig, ax, wass_dist_lists = journal.Wass_convergence_plot()
-        fig.savefig(f"Figures/experiment1/Wass_exp1.2_{i}.pdf")
+        fig.savefig(f"Figures/experiment1/Wass_exp1.2_{i}.pdf")"""
 
         # save the final journal file
         #journal.save(f"Results/experiment1.1/experiment1.1.2/journal_medium.jrnl")
 
 
     ### Experiment 1.3 analysis 
-    """optimal_steps, optimal_particles = 4, 10 #### change this to the optimal values found in experiments 1.1 and 1.2
-  
+    optimal_steps, optimal_particles = 4, 15 # optimal values found in 1.1 and 1.2 
     true_parameter_values = [50, 25, 10]
 
-    journal = experiment2(optimal_steps, optimal_particles)
+    journal = experiment3(optimal_steps, optimal_particles)
+
+    journal.plot_posterior_distr(double_marginals_only = True, show_samples = False, iteration =None,
+                                 true_parameter_values = true_parameter_values,
+                                 path_to_save = f"Figures/experiment1/posterior_1.3_extra.pdf")
 
     posterior_samples = np.array(journal.get_accepted_parameters()).squeeze()
     print("posterior samples:", np.mean(posterior_samples, axis=0))
 
     for i in range(optimal_steps):
         journal.plot_posterior_distr(double_marginals_only = True, show_samples = False, iteration =i,
-                                true_parameter_values = true_parameter_values,
-                                path_to_save = f"Figures/experiment1/posterior_1.3/medium_{i}.pdf")
+                                     true_parameter_values = true_parameter_values,
+                                     path_to_save = f"Figures/experiment1/posterior_1.3/medium_{i}.pdf")
 
     fig, ax = journal.plot_ESS()
     fig.savefig("Figures/experiment1/ESS_exp1.3_medium.pdf")
     plt.close(fig)
 
     fig, ax, wass_dist_lists = journal.Wass_convergence_plot()
-    fig.savefig("Figures/experiment1/Wass_exp1.3_medium.pdf")"""
+    fig.savefig("Figures/experiment1/Wass_exp1.3_medium.pdf")
     # save the final journal file
     #journal.save(f"Results/experiment1.1/experiment1.1.3/journal.jrnl")
     

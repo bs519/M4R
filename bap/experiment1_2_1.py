@@ -17,13 +17,13 @@ def experiment4():
             print(f"Simulation {i} with wakeup time {j}")
             os.makedirs(f"Results/experiment1.2/experiment1.2.1/{i}sim/{j}", exist_ok=True)
             l = 0
-            while l<10:
+            while l<3:
                 try:
-                    subprocess.run([f"python3 -u abides.py -c bap -t ABM -d 20200603 --start-time '09:30:00' --end-time '13:00:00' -l experiment_3 -o 1 -i 1 -x experiment1.2/experiment1.2.1/{i}sim/{j} -y {i} -w {j}"], shell=True) #-j experiment1.2.1 -q {i}sim --print-means4 {j} -y {i} -w {j}"], shell=True)
+                    subprocess.check_output([f"python3 -u abides.py -c bap -t ABM -d 20200603 --start-time '09:30:00' --end-time '13:00:00' -l experiment_4_{i}sim_{j} -o 1 -i 1 -x experiment1.2/experiment1.2.1/{i}sim/{j} -y {i} -w {j}"], shell=True) #-j experiment1.2.1 -q {i}sim --print-means4 {j} -y {i} -w {j}"], shell=True)
                 except subprocess.CalledProcessError as e:
                     print("error:", e.output)
-                    j += 1
-                    print(f"We try again for the {j}th time")
+                    l += 1
+                    print(f"We try again for the {l}th time")
                     continue
                 else:
                     break

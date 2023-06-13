@@ -96,7 +96,7 @@ class Model(ProbabilisticModel, Continuous):
     A model for the inference of the parameters of ABIDES
     """
 
-    def __init__(self, parameters, n=None, symbol = "ABM", starting_cash = 10000000, r_bar = 1e5, sigma_n = 1e5/10, kappa = 1.67e-15, lambda_a = 7e-11, name='Model'):
+    def __init__(self, parameters, n=None, n2=None, config=None, symbol = "ABM", starting_cash = 10000000, r_bar = 1e5, sigma_n = 1e5/10, kappa = 1.67e-15, lambda_a = 7e-11, name='Model'):
         """
         Parameters
         ----------
@@ -107,6 +107,8 @@ class Model(ProbabilisticModel, Continuous):
         """
         self.parameters = parameters
         self.n = n
+        self.n2 = n2
+        self.config = config
         #self.output_variables = [Continuous(np.array([0]), name='output', limits=np.array([[0, 1]]))]
         self.symbol = symbol
         self.starting_cash = starting_cash
@@ -158,7 +160,7 @@ class Model(ProbabilisticModel, Continuous):
         #n_timestep = parameters[3]
 
         # Do the actual forward simulation
-        vector_of_k_samples = self.Market_sim(num_noise, num_momentum_agents, num_value, k)
+        vector_of_k_samples = self.Market_sim(num_noise, num_momentum_agents, num_value, k, rng)
         # Format the output to obey API
         result = [np.array([x]) for x in vector_of_k_samples]
         return result
@@ -170,7 +172,7 @@ class Model(ProbabilisticModel, Continuous):
         result = [np.array([x]) for x in vector_of_k_samples]
         return result"""
     
-    def Market_sim(self, num_noise, num_momentum_agents, num_value, k):
+    def Market_sim(self, num_noise, num_momentum_agents, num_value, k, rng = np.random.RandomState()):
         """
         k market simulations for n_timstep time using abides package with a configuration /
         of num_noise noise agents, num_momentum momentum agents, num_value value agents.
@@ -186,21 +188,22 @@ class Model(ProbabilisticModel, Continuous):
 
         result = []
         n = self.n
-        end_sim = n + timedelta(minutes=5)
+        n2 = self.n2
+        end_sim = n + timedelta(minutes=3)
         for i in range(k):
             cleaned_orderbook = np.array([])
             j = 0
-            while True:
+            while j < 10:
                 try:
                     #### make python file execute powershell command with parameters as config
-                    subprocess.run([f"python3 -u abides.py -c bap -t ABM -d 20200603 --start-time '9:30:00' --end-time {end_sim.strftime('%H:%M:%S')} -l inference -n {num_noise} -m {num_momentum_agents} -a {num_value} -z {self.starting_cash} -r {self.r_bar} -g {self.sigma_n} -k {self.kappa} -b {self.lambda_a}"], shell=True)
-                except Exception as e:
+                    subprocess.check_output([f"python3 -u abides.py -c bap -t ABM -d 20200603 --start-time '9:30:00' --end-time {end_sim.strftime('%H:%M:%S')} -l inference_{self.config} -n {num_noise} -m {num_momentum_agents} -a {num_value} -z {self.starting_cash} -r {self.r_bar} -g {self.sigma_n} -k {self.kappa} -b {self.lambda_a} -s {(i+1)*rng.randint(k)+15+j}"], shell=True)
+                except subprocess.CalledProcessError as e:
                     print("An error occurred:", str(e))
                     j += 1
                     print(f"We try again for the {j}th time")
                     continue
                 else:
-                    stream_df = pd.read_pickle("log/inference/EXCHANGE_AGENT.bz2")
+                    stream_df = pd.read_pickle(f"log/inference_{self.config}/EXCHANGE_AGENT.bz2")
                     stream_processed = convert_stream_to_format(stream_df.reset_index(), fmt='plot-scripts')
                     stream_processed = stream_processed.set_index('TIMESTAMP')
                     cleaned_orderbook = stream_processed
@@ -208,7 +211,7 @@ class Model(ProbabilisticModel, Continuous):
                     last_time = cleaned_orderbook.index[-1]
                     start_time = cleaned_orderbook.index[0]
 
-                    if cleaned_orderbook.shape[0] != 0 and last_time > start_time + pd.to_timedelta("3min"):
+                    if cleaned_orderbook.shape[0] != 0 and last_time > start_time + pd.to_timedelta("5min"):
                         #change true to 1 and false to 0 in buy_sell_flag
                         cleaned_orderbook['BUY_SELL_FLAG'] = cleaned_orderbook['BUY_SELL_FLAG'].astype(int)
 
@@ -223,9 +226,12 @@ class Model(ProbabilisticModel, Continuous):
                         # keep rows with index smaller than Datetime n
                         cleaned_orderbook = cleaned_orderbook[cleaned_orderbook['TIMESTAMP'] < n]
 
-                        #make headers the first row
-                        cleaned_orderbook.loc[0] = cleaned_orderbook.columns
+                        # keep rows with index larger than Datetime n2
+                        cleaned_orderbook = cleaned_orderbook[cleaned_orderbook['TIMESTAMP'] > n2]
 
+                        #make headers the first row
+                        cleaned_orderbook.iloc[0] = cleaned_orderbook.columns
+                        
                         result.append(cleaned_orderbook.to_numpy())
                         break
                     else:
@@ -284,7 +290,7 @@ class SummaryStatistics(Statistics):
             #make the first row headers
             data_ind_element.columns = data_ind_element.iloc[0]
             #drop the first row
-            data_ind_element = data_ind_element[1:]
+            data_ind_element = data_ind_element.iloc[1: ,:]
             #set Timestamp as index
             data_ind_element = data_ind_element.set_index('TIMESTAMP')
             # remove the order id column
