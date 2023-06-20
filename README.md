@@ -1,4 +1,4 @@
-# M4R
+# Agent-based market bayesian inference strategy
 
 Code implementing an agent performing bayesian inference, using the ABCpy package, within the ABIDES market simulator. The agent uses the Sequential Monte Carlo algorithm for Approximate Bayesina Computation (SMCABC) introduced in: P. Del Moral, A. Doucet, A. Jasra, An adaptive sequential Monte Carlo method for approximate Bayesian computation. Statistics and Computing, 22(5):1009-1020, 2012. The agent performs this inference scheme, using the orderbook's history as an observation, to obtain an approximation of the parameters of the ABIDES configuration of the simulation it belongs to. From this the agent records multiple simulations to predict the future price. It then implements a simple Bollinger Band strategy from these price predictions to determine its trading strategy.
 
