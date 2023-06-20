@@ -17,16 +17,105 @@ sys.path.append(p)
 from agent.TradingAgent import TradingAgent
 from realism.realism_utils import make_orderbook_for_analysis, MID_PRICE_CUTOFF
 from bap.inference_functions import Model, SummaryStatistics
-#from market_simulations import rmsc03_4
 
 os.makedirs("Results", exist_ok = True)
 
 
 class InferenceAgent(TradingAgent):
     """
-    Simple Trading Agent that compares the 20 past mid-price observations with the 50 past observations and places a
-    buy limit order if the 20 mid-price average >= 50 mid-price average or a
-    sell limit order if the 20 mid-price average < 50 mid-price average
+    Inference agent that uses the SMCABC algorithm to infer the parameters of the ABIDES simulator.
+
+    Attributes
+    ----------
+    id : str
+        Agent identifier
+    name : str
+        Agent name
+    type : str
+        Agent type (e.g. 'MomentumAgent')
+    symbol : str
+        Symbol to trade
+    starting_cash : float
+        Starting cash balance
+    min_size : int
+        Minimum order size
+    max_size : int
+        Maximum order size
+    size : int
+        Optional fixed order size
+    wake_up_freq : str
+        Wake up frequency (e.g. '10s' for 10 seconds)
+    subscribe : bool
+        Flag to determine whether to subscribe to data or use polling mechanism
+    L : int
+        Length of order book history to use (number of transactions)
+    log_orders : bool
+        Flag to determine whether to log order book data
+    random_state : numpy.random.RandomState
+        Random number generator
+    init_wakeup_time : str
+        Time to start the inference agent
+    mkt_open : datetime
+        Market open time
+    mkt_close : datetime
+        Market close time
+    k : int
+        Number of simulations to run
+    m : int
+        Number of standard deviations to use for the Bollinger bands
+    num_agents : int
+        Number of agents to use for the inference
+    inf_log : str
+        Name of the folder to save the inference results
+    r_bar : float
+        Parameter of the simulator
+    sigma_n : float
+        Parameter of the simulator
+    kappa : float
+        Parameter of the simulator
+    lambda_a : float
+        Parameter of the simulator
+    sim_check : bool
+        Flag to determine whether the simulations have been run
+    sim_OB : bool
+        Flag to determine whether the simulations have been run
+    sim_num : int
+        Number of simulations to run
+    sim_time : str
+        Length of time to run the simulations
+    historical_date : int
+        Date of the historical data to use
+    startsimTime : str
+        Time to start the simulations
+    endsimTime : str
+        Time to end the simulations
+    mid_list : list
+        List of mid prices
+    subscription_requested : bool
+        Flag to determine whether the subscription has been requested
+    state : str
+        State of the agent
+    sim_OB : pandas.DataFrame
+        Simulated order book
+    sim_check : bool
+        Flag to determine whether the simulations have been run
+
+    Methods
+    -------
+    kernelStarting(startTime)
+        Method called when the kernel is starting
+    wakeup(currentTime)
+        Method called when the agent wakes up
+    receiveMessage(currentTime, msg)    
+        Method called when the agent receives a message
+    placeOrders(bid, ask, currentTime)
+        Simulate price and place a limit order at the best bid or ask depending on current price trend
+    getWakeFrequency()
+        Get the wake up frequency
+    format_history(history, num_levels=1)
+        Convert orderbook history to the format required by the inference method
+    infer(history, n=None, n2=None, log_orders = None)
+        Perform initial inference
     """
 
     def __init__(self, id, name, type, symbol, starting_cash,
@@ -91,7 +180,7 @@ class InferenceAgent(TradingAgent):
             # print self.init_wakeup_time formatted to remove the days
             filesave = str(self.init_wakeup_time)[slice(7,15)]
             try:
-                #journal = Journal.fromFile(f"Results/inference_agent_{self.init_wakeup_time}_{self.k}_{self.m}.jrnl") #### comment once parameter saving fixed
+                #journal = Journal.fromFile(f"Results/inference_agent_{self.init_wakeup_time}_{self.k}_{self.m}.jrnl")
                 # Instead of reading the large journal file, we read the parameter file
                 num_noise, num_momentum, num_value = np.genfromtxt(f"Results/{self.inf_log}/params_{filesave}_k{self.k}_m{self.m}_numb{self.num_agents}.txt")
                 print("Parameters loaded")
@@ -106,7 +195,7 @@ class InferenceAgent(TradingAgent):
                 journal = InferenceAgent.infer(history, n, n2, self.log_orders)
 
                 # save the final journal file, depending on the experiment
-                #journal.save(f"Results/inference_agent_{self.init_wakeup_time}_{self.k}_{self.m}.jrnl")  #### comment once parameter saving fixed
+                #journal.save(f"Results/inference_agent_{self.init_wakeup_time}_{self.k}_{self.m}.jrnl")
                 # Since the file is too large, instead we save only the estimates
                 posterior_samples = np.array(journal.get_accepted_parameters()).squeeze()
                 parameters = np.mean(posterior_samples, axis=0)
@@ -146,7 +235,7 @@ class InferenceAgent(TradingAgent):
                 return cleaned_orderbook
 
             print("simulating")
-            for i in range(self.sim_num): #self.sim_num):
+            for i in range(self.sim_num):
                 print(f"Simulation {i+1} of {self.sim_num}")
                 cleaned_orderbook = run_simulation(i)
 
@@ -156,10 +245,10 @@ class InferenceAgent(TradingAgent):
                     sim_orderbook = sim_orderbook.append(cleaned_orderbook)
             
             sim_orderbook.sort_index(inplace=True)
-            #sim_orderbook.to_csv("Results/sim_orderbook.csv")
+            #sim_orderbook.to_csv("Results/sim_orderbook.csv") #store the simulated orderbook depending on RAM availability
 
             self.sim_check = True
-            self.sim_OB = sim_orderbook.copy() #copy not needed?
+            self.sim_OB = sim_orderbook.copy()
 
             
             
@@ -180,15 +269,16 @@ class InferenceAgent(TradingAgent):
     def placeOrders(self, bid, ask, currentTime):
         """ Simulate price and place a limit order at the best bid or ask depending on current price trend"""
         
-        """if len(self.stream_history[self.symbol]) < self.L:
-            # Not enough history for HBL.
-            log_print("Insufficient history for HBL: length {}, L {}", len(self.stream_history[self.symbol]), self.L)"""
+        """#possibility to subsitute wake up time with order book history length
+        if len(self.stream_history[self.symbol]) < self.L:
+            # Not enough history for inference.
+            log_print("Insufficient history for inference: length {}, L {}", len(self.stream_history[self.symbol]), self.L)"""
         
         if bid and ask:
             m= self.m
             
             # An improvement to save some memory would be to compute this mid price mean and standard deviation before in the setup
-            # part for every wake up time adn store this much shorter time series instead of the whole simulations time series.
+            # part for every wake up time and store this much shorter time series instead of the whole simulations time series.
             #get the simulated orderbook
             sim_orderbook = self.sim_OB.copy()
 
@@ -237,8 +327,6 @@ class InferenceAgent(TradingAgent):
         #order by timestamp
         ob_processed = ob_processed.sort_values(by=['TIMESTAMP'])
       
-        #set entry_time as index
-        #ob_processed = ob_processed.set_index('TIMESTAMP')
         # change true to 1 and false to 0 in buy_sell_flag
         ob_processed['BUY_SELL_FLAG'] = ob_processed['BUY_SELL_FLAG'].astype(int)
 
@@ -255,17 +343,6 @@ class InferenceAgent(TradingAgent):
         from abcpy.backends import BackendDummy as Backend
         # Define backend
         backend = Backend()
-        
-
-        ## Define backend for parallelization
-        """def setup_backend():
-            from abcpy.backends import BackendMPI as Backend
-            backend = Backend()
-            # The above line is equivalent to:
-            # backend = Backend(process_per_model=1)
-            # Notice: Models not parallelized by MPI should not be given process_per_model > 1
-            return backend"""
-
 
         from abcpy.output import Journal
         from abcpy.continuousmodels import Uniform

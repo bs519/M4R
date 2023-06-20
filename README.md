@@ -5,3 +5,5 @@ Code implementing an agent performing bayesian inference, using the [ABCpy packa
 The folder implements this agent in the ABIDES package and compares the agent's performance to the Zero-Intelligence agent. The code for the agent can be found in the "InferenceAgent.py" file in the "agent" folder. For its inference scheme it uses functions defined in "inference_functions.py" found in the "bap" folder. The ABIDES configuration file calling this agent is named "bap.py". This is the configuration we use for experiments found in the folder "Experiments_1.2_to_2.3" in the "bap" folder.
 
 The configuration of the ABIDES file is easily customisable to the user's needs. The agent's code can be modified similarly but if the user wishes to change the inference scheme, then knowledge of the ABCpy package is required. The implementation of the agent as a basic bayesian inference agent was done with high customizability in mind.
+
+The Zero-Intelligence agent's file has been slightly modified to implement a wake up time. The "Kernel" file also has been altered to allow storage of the end mean values of the agent's holdings per agent type, to measure the agents' performances.

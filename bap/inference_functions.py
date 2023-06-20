@@ -18,7 +18,6 @@ sys.path.append(p)
 
 from realism.realism_utils import make_orderbook_for_analysis, MID_PRICE_CUTOFF
 from util.formatting.convert_order_stream import convert_stream_to_format
-#from market_simulations import rmsc03_4
 
 os.makedirs("Results", exist_ok = True)
 
@@ -109,7 +108,6 @@ class Model(ProbabilisticModel, Continuous):
         self.n = n
         self.n2 = n2
         self.config = config
-        #self.output_variables = [Continuous(np.array([0]), name='output', limits=np.array([[0, 1]]))]
         self.symbol = symbol
         self.starting_cash = starting_cash
         self.r_bar = r_bar
@@ -137,7 +135,7 @@ class Model(ProbabilisticModel, Continuous):
         num_momentum_agents = input_values[1]
         num_value = input_values[2]
 
-        if num_noise < 0 or num_momentum_agents < 0 or num_value < 0:# or isinstance(num_noise, int) == False or isinstance(num_momentum_agents, int) == False or isinstance(num_value, int) == False:
+        if num_noise < 0 or num_momentum_agents < 0 or num_value < 0:
             return False
 
         return True
@@ -156,21 +154,12 @@ class Model(ProbabilisticModel, Continuous):
         num_noise = parameters[0]
         num_momentum_agents = parameters[1]
         num_value = parameters[2]
-        #time simulated
-        #n_timestep = parameters[3]
 
         # Do the actual forward simulation
         vector_of_k_samples = self.Market_sim(num_noise, num_momentum_agents, num_value, k, rng)
         # Format the output to obey API
         result = [np.array([x]) for x in vector_of_k_samples]
         return result
-
-    """def forward_simulate_true_model(self, k, rng = np.random.RandomState()):
-        # Do the actual forward simulation
-        vector_of_k_samples = self.Market_sim_true(k, rng = rng) # is x full orderbook and y is summary statistics???
-        # Format the output to obey API
-        result = [np.array([x]) for x in vector_of_k_samples]
-        return result"""
     
     def Market_sim(self, num_noise, num_momentum_agents, num_value, k, rng = np.random.RandomState()):
         """
@@ -240,17 +229,6 @@ class Model(ProbabilisticModel, Continuous):
                         continue
 
         return result
-    
-
-"""processed_orderbook =  make_orderbook_for_analysis("log/bap_timestep/EXCHANGE_AGENT.bz2", "log/bap_timestep/ORDERBOOK_ABM_FULL.bz2", num_levels=1,
-                                                               hide_liquidity_collapse=False)# estimates parameters
-            print(processed_orderbook.head(5))
-            print(type(processed_orderbook))
-            cleaned_orderbook = processed_orderbook[(processed_orderbook['MID_PRICE'] > - MID_PRICE_CUTOFF) &
-                                                    (processed_orderbook['MID_PRICE'] < MID_PRICE_CUTOFF)]
-            
-            #remove nan value in first row
-            cleaned_orderbook = cleaned_orderbook.drop(cleaned_orderbook.index[0])"""
 
 
 class SummaryStatistics(Statistics):
@@ -352,34 +330,3 @@ class SummaryStatistics(Statistics):
             result[ind_element] = mean_limit
 
             return np.array(result)
-                
-                
-            
-
-            
-                
-            
-            
-            """print(data[ind_element].shape[1])
-            data_ind_element = data[ind_element].reshape(data[ind_element].shape[1]//12, 12)
-            print(data_ind_element)
-            data_ind_element = pd.DataFrame(data_ind_element)
-            # get the first and last time of the orderbook
-            first_time = data_ind_element.index[0]
-            last_time = data_ind_element.index[-1]
-            start_time = first_time + prop_time_skip*(last_time - first_time)
-            #retain only the part of the orderbook after the start_time
-            orderbook = data_ind_element.loc[data_ind_element.index >= start_time]
-            # remove the second and sixth columns corresponding to the order id and the type of order
-            orderbook = orderbook.to_numpy()
-            orderbook = np.delete(orderbook, [0, 4], axis=1)"""
-            #orderbook = orderbook.drop(columns=['ORDER_ID', 'TYPE'])
-            #drop headers
-            #orderbook = orderbook.drop(orderbook.index[0])
-            
-            #return the mean of the orderbook
-            #result[ind_element, :] = np.mean(orderbook, axis=0).tolist() #add fundamental
-
-            """# Expand the data with polynomial expansion
-        result = self._polynomial_expansion(result)"""
-        

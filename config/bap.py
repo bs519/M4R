@@ -4,7 +4,8 @@
 # - 100   Value Agents
 # - 25    Momentum Agents
 # - 5000  Noise Agents
-# - 1     (Optional) POV Execution agent
+# - 1     Inference Agent
+# - 1   Zero Intelligence Agents
 
 import argparse
 import numpy as np
@@ -119,19 +120,6 @@ parser.add_argument("-x",
                     type=str,
                     default= False,
                     help= "directory to store mean of agents in Results folder")
-"""parser.add_argument("--print-means2",
-                    type=str,
-                    default= False,
-                    help= "second directory to store mean of agents in Results folder")
-parser.add_argument("-q",
-                    "--print-means3",
-                    type=str,
-                    default= False,
-                    help= "third directory to store mean of agents in Results folder")
-parser.add_argument("--print-means4",
-                    type=str,
-                    default= False,
-                    help= "third directory to store mean of agents in Results folder")"""
 
 parser.add_argument("-y",
                     "--simulation-number",
@@ -251,8 +239,6 @@ log_orders = None
 book_freq = 0
 
 simulation_start_time = dt.datetime.now()
-print("Simulation Start Time: {}".format(simulation_start_time))
-#print("Configuration seed: {}\n".format(seed))
 print("inference agents: {}".format(round(args.inference_agents)))
 ########################################################################################################################
 ############################################### AGENTS CONFIG ##########################################################
@@ -312,9 +298,8 @@ agent_count += 1
 
 # 2) Noise Agents
 num_noise = round(args.noise_agents)
-noise_mkt_open = mkt_open #historical_date + pd.to_timedelta("09:00:00")  # These times needed for distribution of arrival times
-                                                                # of Noise Agents
-noise_mkt_close = mkt_close #historical_date + pd.to_timedelta("16:00:00")
+noise_mkt_open = mkt_open
+noise_mkt_close = mkt_close
 agents.extend([NoiseAgent(id=j,
                           name="NoiseAgent {}".format(j),
                           type="NoiseAgent",
@@ -466,7 +451,7 @@ agents.extend([ZeroIntelligenceAgent(id=j,
 agent_types.extend("ZeroIntelligenceAgent")
 agent_count += num_zi_agents
 
-####### if using HBL, implement wake up time like done with Zero intelligence agent
+####### if user wishes to use HBL, implement wake up time like done with Zero intelligence agent
 # 8) Heuristic Belief Learning Agents
 num_hbl_agents = round(args.hbl_agents)
 agents.extend([HeuristicBeliefLearningAgent(id=j,
@@ -562,7 +547,7 @@ kernel.runner(agents=agents,
               agentLatencyModel=latency_model,
               defaultComputationDelay=defaultComputationDelay,
               oracle=oracle,
-              log_dir=args.log_dir, save_means = args.print_means) # '/'.join([args.print_means, args.print_means2, args.print_means3, args.print_means4]))
+              log_dir=args.log_dir, save_means = args.print_means)
 
 
 simulation_end_time = dt.datetime.now()
